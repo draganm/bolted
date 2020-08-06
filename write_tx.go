@@ -8,8 +8,11 @@ import (
 )
 
 type writeTx struct {
-	btx *bolt.Tx
+	btx             *bolt.Tx
+	changeListeners CompositeChangeListener
 }
+
+var ErrNotFound = errors.New("not found")
 
 func (w *writeTx) CreateMap(path string) error {
 
@@ -41,10 +44,14 @@ func (w *writeTx) CreateMap(path string) error {
 
 	_, err = bucket.CreateBucket([]byte(last))
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	return w.changeListeners.CreateMap(w, path)
 }
 
-func (w *writeTx) DeleteMap(path string) error {
+func (w *writeTx) Delete(path string) error {
 
 	// TODO: create an uniform error layer
 
@@ -70,9 +77,25 @@ func (w *writeTx) DeleteMap(path string) error {
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := []byte(parts[len(parts)-1])
 
-	return bucket.DeleteBucket([]byte(last))
+	val := bucket.Get(last)
+	if val != nil {
+		return bucket.Delete(last)
+	}
+
+	b := bucket.Bucket(last)
+	if b == nil {
+		return ErrNotFound
+	}
+
+	err = bucket.DeleteBucket(last)
+
+	if err != nil {
+		return err
+	}
+
+	return w.changeListeners.Delete(w, path)
 
 }
 
@@ -104,7 +127,12 @@ func (w *writeTx) Put(path string, value []byte) error {
 
 	last := parts[len(parts)-1]
 
-	return bucket.Put([]byte(last), value)
+	err = bucket.Put([]byte(last), value)
+	if err != nil {
+		return err
+	}
+
+	return w.changeListeners.Put(w, path, value)
 
 }
 

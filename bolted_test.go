@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T) (*bolted.Bolted, func()) {
+func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -18,7 +18,7 @@ func openEmptyDatabase(t *testing.T) (*bolted.Bolted, func()) {
 		require.NoError(t, err)
 	}
 
-	db, err := bolted.Open(filepath.Join(td, "db"), 0660)
+	db, err := bolted.Open(filepath.Join(td, "db"), 0660, opts...)
 
 	require.NoError(t, err)
 
@@ -97,16 +97,16 @@ func TestCreateMap(t *testing.T) {
 
 }
 
-func TestDeleteMap(t *testing.T) {
+func TestDelete(t *testing.T) {
 
 	t.Run("delete not existing map", func(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.DeleteMap("test")
+			return tx.Delete("test")
 		})
-		require.EqualError(t, err, "bucket not found")
+		require.Equal(t, bolted.ErrNotFound, err)
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestDeleteMap(t *testing.T) {
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.DeleteMap("test")
+			return tx.Delete("test")
 		})
 		require.NoError(t, err)
 	})
@@ -138,7 +138,7 @@ func TestDeleteMap(t *testing.T) {
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.DeleteMap("test")
+			return tx.Delete("test")
 		})
 		require.NoError(t, err)
 	})
@@ -157,7 +157,22 @@ func TestDeleteMap(t *testing.T) {
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.DeleteMap("test/foo")
+			return tx.Delete("test/foo")
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("delete value", func(t *testing.T) {
+		db, cleanup := openEmptyDatabase(t)
+		defer cleanup()
+
+		err := db.Write(func(tx bolted.WriteTx) error {
+			return tx.Put("test", []byte{1, 2, 3})
+		})
+
+		require.NoError(t, err)
+		err = db.Write(func(tx bolted.WriteTx) error {
+			return tx.Delete("test")
 		})
 		require.NoError(t, err)
 	})
