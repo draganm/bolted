@@ -15,3 +15,15 @@ func WithChangeListeners(c ...ChangeListener) func(*Bolted) error {
 		return nil
 	}
 }
+
+func WithNoSync() func(*Bolted) error {
+	return func(b *Bolted) error {
+		b.db.NoSync = true
+	}
+}
+
+func WithNoGrowSync() func(*Bolted) error {
+	return func(b *Bolted) error {
+		b.db.NoGrowSync = true
+	}
+}

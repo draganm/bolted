@@ -15,7 +15,7 @@ type Bolted struct {
 const rootBucketName = "root"
 
 func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
-	db, err := bolt.Open(path, mode, nil)
+	db, err := bolt.Open(path, mode, &bolt.Options{})
 	if err != nil {
 		return nil, errors.Wrap(err, "while opening bolt db")
 	}
