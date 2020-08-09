@@ -67,6 +67,7 @@ type WriteTx interface {
 type ReadTx interface {
 	Get(path string) ([]byte, error)
 	Iterator(path string, first string) (*Iterator, error)
+	ReverseIterator(path string, first string) (*Iterator, error)
 	Exists(path string) (bool, error)
 }
 
