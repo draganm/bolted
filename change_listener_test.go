@@ -9,12 +9,18 @@ import (
 )
 
 type testChangeListener struct {
+	addedCalled            bool
 	startCalled            bool
 	deleteCalled           bool
 	createMapCalled        bool
 	putCalled              bool
 	beforeCommitCalled     bool
 	afterTransactionCalled bool
+}
+
+func (c *testChangeListener) Added(b *bolted.Bolted) error {
+	c.addedCalled = true
+	return nil
 }
 
 func (c *testChangeListener) Start(w bolted.WriteTx) error {
@@ -66,6 +72,7 @@ func TestChangeListener(t *testing.T) {
 		return nil
 	})
 
+	require.True(t, cl.addedCalled)
 	require.True(t, cl.startCalled)
 	require.True(t, cl.beforeCommitCalled)
 	require.True(t, cl.afterTransactionCalled)

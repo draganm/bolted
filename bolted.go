@@ -43,6 +43,12 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 			return nil, errors.Wrap(err, "while applying option")
 		}
 	}
+
+	err = b.changeListeners.Added(b)
+	if err != nil {
+		return nil, errors.Wrap(err, "while handling Added by one of the change listeners")
+	}
+
 	return b, nil
 
 }
