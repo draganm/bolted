@@ -19,11 +19,13 @@ func WithChangeListeners(c ...ChangeListener) func(*Bolted) error {
 func WithNoSync() func(*Bolted) error {
 	return func(b *Bolted) error {
 		b.db.NoSync = true
+		return nil
 	}
 }
 
 func WithNoGrowSync() func(*Bolted) error {
 	return func(b *Bolted) error {
 		b.db.NoGrowSync = true
+		return nil
 	}
 }
