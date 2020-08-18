@@ -253,7 +253,7 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			it, err := tx.Iterator("", "")
+			it, err := tx.Iterator("")
 			if err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator("", "")
+			it, err := tx.Iterator("")
 			if err != nil {
 				return err
 			}
@@ -307,7 +307,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator("", "")
+			it, err := tx.Iterator("")
 			if err != nil {
 				return err
 			}
@@ -317,6 +317,18 @@ func TestIterator(t *testing.T) {
 			require.Equal(t, []byte{1, 2, 3}, it.Value)
 
 			it.Next()
+
+			require.False(t, it.Done)
+			require.Equal(t, "test2", it.Key)
+			require.Equal(t, []byte{2, 3, 4}, it.Value)
+
+			it.Prev()
+
+			require.False(t, it.Done)
+			require.Equal(t, "test1", it.Key)
+			require.Equal(t, []byte{1, 2, 3}, it.Value)
+
+			it.Last()
 
 			require.False(t, it.Done)
 			require.Equal(t, "test2", it.Key)
@@ -353,7 +365,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator("", "")
+			it, err := tx.Iterator("")
 			if err != nil {
 				return err
 			}
@@ -373,130 +385,6 @@ func TestIterator(t *testing.T) {
 			require.False(t, it.Done)
 			require.Equal(t, "test3", it.Key)
 			require.Equal(t, []byte(nil), it.Value)
-
-			it.Next()
-
-			require.True(t, it.Done)
-
-			return nil
-		})
-		require.NoError(t, err)
-
-	})
-
-}
-
-func TestReverseIterator(t *testing.T) {
-
-	t.Run("iterating root with one value", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t)
-		defer cleanup()
-
-		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Put("test", []byte{1, 2, 3})
-		})
-		require.NoError(t, err)
-
-		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.ReverseIterator("", "")
-			if err != nil {
-				return err
-			}
-			require.False(t, it.Done)
-
-			require.Equal(t, "test", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
-
-			it.Next()
-			require.True(t, it.Done)
-
-			return nil
-		})
-		require.NoError(t, err)
-
-	})
-
-	t.Run("iterating root with two values", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t)
-		defer cleanup()
-
-		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.Put("test1", []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			return tx.Put("test2", []byte{2, 3, 4})
-		})
-		require.NoError(t, err)
-
-		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.ReverseIterator("", "")
-			if err != nil {
-				return err
-			}
-
-			require.False(t, it.Done)
-			require.Equal(t, "test2", it.Key)
-			require.Equal(t, []byte{2, 3, 4}, it.Value)
-
-			it.Next()
-
-			require.False(t, it.Done)
-			require.Equal(t, "test1", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
-
-			it.Next()
-
-			require.True(t, it.Done)
-
-			return nil
-		})
-		require.NoError(t, err)
-
-	})
-
-	t.Run("iterating root with two values and a bucket", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t)
-		defer cleanup()
-
-		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.Put("test1", []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			err = tx.Put("test2", []byte{2, 3, 4})
-			if err != nil {
-				return err
-			}
-
-			return tx.CreateMap("test3")
-
-		})
-		require.NoError(t, err)
-
-		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.ReverseIterator("", "")
-			if err != nil {
-				return err
-			}
-
-			require.False(t, it.Done)
-			require.Equal(t, "test3", it.Key)
-			require.Equal(t, []byte(nil), it.Value)
-
-			it.Next()
-
-			require.False(t, it.Done)
-			require.Equal(t, "test2", it.Key)
-			require.Equal(t, []byte{2, 3, 4}, it.Value)
-
-			it.Next()
-
-			require.False(t, it.Done)
-			require.Equal(t, "test1", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
 
 			it.Next()
 

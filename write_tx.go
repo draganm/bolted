@@ -175,27 +175,50 @@ func (w *writeTx) Get(path string) ([]byte, error) {
 }
 
 type Iterator struct {
-	c       *bolt.Cursor
-	reverse bool
-	Key     string
-	Value   []byte
-	Done    bool
+	c     *bolt.Cursor
+	Key   string
+	Value []byte
+	Done  bool
 }
 
 func (i *Iterator) Next() {
 	var k, v []byte
-	if !i.reverse {
-		k, v = i.c.Next()
-	} else {
-		k, v = i.c.Prev()
-	}
-
+	k, v = i.c.Next()
 	i.Key = string(k)
 	i.Value = v
 	i.Done = k == nil
 }
 
-func (w *writeTx) Iterator(path string, first string) (*Iterator, error) {
+func (i *Iterator) Prev() {
+	var k, v []byte
+	k, v = i.c.Prev()
+	i.Key = string(k)
+	i.Value = v
+	i.Done = k == nil
+}
+
+func (i *Iterator) Seek(key string) {
+	k, v := i.c.Seek([]byte(key))
+	i.Key = string(k)
+	i.Value = v
+	i.Done = k == nil
+}
+
+func (i *Iterator) First() {
+	k, v := i.c.First()
+	i.Key = string(k)
+	i.Value = v
+	i.Done = k == nil
+}
+
+func (i *Iterator) Last() {
+	k, v := i.c.Last()
+	i.Key = string(k)
+	i.Value = v
+	i.Done = k == nil
+}
+
+func (w *writeTx) Iterator(path string) (*Iterator, error) {
 
 	parts, err := dbpath.Split(path)
 	if err != nil {
@@ -215,7 +238,7 @@ func (w *writeTx) Iterator(path string, first string) (*Iterator, error) {
 	}
 
 	c := bucket.Cursor()
-	k, v := c.Seek([]byte(first))
+	k, v := c.First()
 
 	return &Iterator{
 		c:     c,
@@ -258,42 +281,5 @@ func (w *writeTx) Exists(path string) (bool, error) {
 	}
 
 	return bucket.Bucket([]byte(last)) != nil, nil
-
-}
-
-func (w *writeTx) ReverseIterator(path string, first string) (*Iterator, error) {
-
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return nil, err
-	}
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
-
-	if bucket == nil {
-		return nil, errors.New("root bucket not found")
-	}
-
-	for _, p := range parts {
-		bucket = bucket.Bucket([]byte(p))
-		if bucket == nil {
-			return nil, errors.New("one of the parent buckets does not exist")
-		}
-	}
-
-	c := bucket.Cursor()
-	var k, v []byte
-	if first == "" {
-		k, v = c.Last()
-	} else {
-		k, v = c.Seek([]byte(first))
-	}
-
-	return &Iterator{
-		c:       c,
-		Key:     string(k),
-		Value:   v,
-		Done:    k == nil,
-		reverse: true,
-	}, nil
 
 }
