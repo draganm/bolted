@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +38,20 @@ func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, fun
 
 }
 
+type watchEvent struct {
+	read bool
+	exit error
+}
+
+func waitForEvent(t *testing.T, events chan watchEvent, expected watchEvent) {
+	select {
+	case <-time.NewTimer(2 * time.Second).C:
+		require.Fail(t, "timed out waiting for watch to execute")
+	case evt := <-events:
+		require.Equal(t, expected, evt)
+	}
+}
+
 func TestWatchPath(t *testing.T) {
 
 	watcher := watcher.New()
@@ -47,25 +60,22 @@ func TestWatchPath(t *testing.T) {
 
 	defer cleanupDatabase()
 
-	errchan := make(chan error)
-
-	readchan := make(chan bool)
+	eventChan := make(chan watchEvent)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	wg := new(sync.WaitGroup)
-
-	wg.Add(1)
-
 	go func() {
-		wg.Done()
-		errchan <- watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
-			readchan <- true
+		err := watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
+			eventChan <- watchEvent{read: true}
 			return nil
 		})
+
+		eventChan <- watchEvent{
+			exit: err,
+		}
 	}()
 
-	wg.Wait()
+	waitForEvent(t, eventChan, watchEvent{read: true})
 
 	err := db.Write(func(tx bolted.WriteTx) error {
 		err := tx.CreateMap("foo")
@@ -77,20 +87,11 @@ func TestWatchPath(t *testing.T) {
 
 	require.NoError(t, err)
 
-	select {
-	case <-time.NewTimer(2 * time.Second).C:
-		require.Fail(t, "timed out waiting for watch to execute")
-	case <-readchan:
-	}
+	waitForEvent(t, eventChan, watchEvent{read: true})
 
 	cancel()
 
-	select {
-	case <-time.NewTimer(time.Second).C:
-		require.Fail(t, "timed out waiting for watch to terminate")
-	case err = <-errchan:
-		require.Equal(t, context.Canceled, err)
-	}
+	waitForEvent(t, eventChan, watchEvent{exit: context.Canceled})
 
 }
 
@@ -104,37 +105,39 @@ func TestWatchTwoPaths(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	wg := new(sync.WaitGroup)
-
-	wg.Add(2)
-
-	errchan1 := make(chan error)
-
-	readchan1 := make(chan bool)
+	eventChan1 := make(chan watchEvent)
 
 	doneErr := errors.New("done")
 
 	go func() {
-		wg.Done()
-		errchan1 <- watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
-			readchan1 <- true
-			return doneErr
+		cnt := 2
+		err := watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
+			eventChan1 <- watchEvent{read: true}
+			cnt--
+			if cnt == 0 {
+				return doneErr
+			}
+
+			return nil
+
 		})
+
+		eventChan1 <- watchEvent{exit: err}
 	}()
 
-	errchan2 := make(chan error)
+	waitForEvent(t, eventChan1, watchEvent{read: true})
 
-	readchan2 := make(chan bool)
+	eventChan2 := make(chan watchEvent)
 
 	go func() {
-		wg.Done()
-		errchan2 <- watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
-			readchan2 <- true
+		err := watcher.WatchForChanges(ctx, "foo/bar", func(c bolted.ReadTx) error {
+			eventChan2 <- watchEvent{read: true}
 			return nil
 		})
+		eventChan2 <- watchEvent{exit: err}
 	}()
 
-	wg.Wait()
+	waitForEvent(t, eventChan2, watchEvent{read: true})
 
 	err := db.Write(func(tx bolted.WriteTx) error {
 		err := tx.CreateMap("foo")
@@ -146,42 +149,18 @@ func TestWatchTwoPaths(t *testing.T) {
 
 	require.NoError(t, err)
 
-	select {
-	case <-time.NewTimer(1 * time.Second).C:
-		require.Fail(t, "timed out waiting for watch to execute")
-	case <-readchan1:
-	}
-
-	select {
-	case <-time.NewTimer(1 * time.Second).C:
-		require.Fail(t, "timed out waiting for watch to execute")
-	case <-readchan2:
-	}
-
-	select {
-	case <-time.NewTimer(time.Second).C:
-		require.Fail(t, "timed out waiting for watch to terminate")
-	case err = <-errchan1:
-		require.Equal(t, doneErr, err)
-	}
+	waitForEvent(t, eventChan1, watchEvent{read: true})
+	waitForEvent(t, eventChan2, watchEvent{read: true})
+	waitForEvent(t, eventChan1, watchEvent{exit: doneErr})
 
 	err = db.Write(func(tx bolted.WriteTx) error {
 		return tx.Put("foo/bar", []byte{1, 2, 4})
 	})
 
-	select {
-	case <-time.NewTimer(1 * time.Second).C:
-		require.Fail(t, "timed out waiting for watch to execute")
-	case <-readchan2:
-	}
+	waitForEvent(t, eventChan2, watchEvent{read: true})
 
 	cancel()
 
-	select {
-	case <-time.NewTimer(time.Second).C:
-		require.Fail(t, "timed out waiting for watch to terminate")
-	case err = <-errchan2:
-		require.Equal(t, context.Canceled, err)
-	}
+	waitForEvent(t, eventChan2, watchEvent{exit: context.Canceled})
 
 }

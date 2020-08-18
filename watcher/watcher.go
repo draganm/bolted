@@ -102,13 +102,13 @@ func (w *Watcher) WatchForChanges(ctx context.Context, path string, cb func(c bo
 	}
 
 	for {
-		observer.wait()
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
 		err := w.db.Read(cb)
 		if err != nil {
 			return err
+		}
+		observer.wait()
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 	}
 
