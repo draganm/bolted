@@ -36,6 +36,19 @@ func Join(parts ...string) string {
 	return strings.Join(escaped, Separator)
 }
 
+func Append(pth string, parts ...string) string {
+	if pth == "" {
+		return Join(parts...)
+	}
+
+	escaped := make([]string, len(parts)+1)
+	escaped[0] = pth
+	for i, p := range parts {
+		escaped[i+1] = EscapePart(p)
+	}
+	return strings.Join(escaped, Separator)
+}
+
 func EscapePart(part string) string {
 	return url.PathEscape(part)
 }
