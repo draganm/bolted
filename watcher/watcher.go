@@ -115,7 +115,7 @@ func (w *Watcher) WatchForChanges(ctx context.Context, path string, cb func(c bo
 	return nil
 }
 
-func (w *Watcher) Added(b *bolted.Bolted) error {
+func (w *Watcher) Opened(b *bolted.Bolted) error {
 	w.mu.Lock()
 	w.db = b
 	w.mu.Unlock()
@@ -178,5 +178,10 @@ func (w *Watcher) AfterTransaction(err error) error {
 		}
 	}
 	w.mu.Unlock()
+	return nil
+}
+
+// Closed TODO: add closing of the database semantics
+func (w *Watcher) Closed() error {
 	return nil
 }

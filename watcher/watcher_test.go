@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var _ bolted.ChangeListener = &watcher.Watcher{}
+
 func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
