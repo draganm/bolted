@@ -10,6 +10,7 @@ import (
 type writeTx struct {
 	btx             *bolt.Tx
 	changeListeners CompositeChangeListener
+	readOnly        bool
 }
 
 var ErrNotFound = errors.New("not found")
@@ -48,7 +49,11 @@ func (w *writeTx) CreateMap(path string) error {
 		return err
 	}
 
-	return w.changeListeners.CreateMap(w, path)
+	if !w.readOnly {
+		return w.changeListeners.CreateMap(w, path)
+	}
+
+	return nil
 }
 
 func (w *writeTx) Delete(path string) error {
@@ -95,7 +100,11 @@ func (w *writeTx) Delete(path string) error {
 		return err
 	}
 
-	return w.changeListeners.Delete(w, path)
+	if !w.readOnly {
+		return w.changeListeners.Delete(w, path)
+	}
+
+	return nil
 
 }
 
@@ -132,7 +141,11 @@ func (w *writeTx) Put(path string, value []byte) error {
 		return err
 	}
 
-	return w.changeListeners.Put(w, path, value)
+	if !w.readOnly {
+		return w.changeListeners.Put(w, path, value)
+	}
+
+	return nil
 
 }
 

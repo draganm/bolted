@@ -8,6 +8,10 @@ import (
 
 type metricsChangeListener string
 
+func NewChangeListener(dbName string) bolted.ChangeListener {
+	return metricsChangeListener(dbName)
+}
+
 var numberOfWriteTransactionsVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "bolted_number_of_write_transactions_total",
 	Help: "Total number of write transactions performed on the database",
@@ -28,6 +32,14 @@ var numberOfFailedTransactionsVec = prometheus.NewCounterVec(prometheus.CounterO
 }, []string{
 	"dbname",
 })
+
+func init() {
+	prometheus.MustRegister(
+		numberOfWriteTransactionsVec,
+		numberOfSuccessfulWriteTransactionsVec,
+		numberOfFailedTransactionsVec,
+	)
+}
 
 func (l metricsChangeListener) Opened(b *bolted.Bolted) error {
 	return nil
@@ -80,7 +92,7 @@ func (l metricsChangeListener) AfterTransaction(err error) error {
 	return nil
 }
 
-func (l metricsChangeListener) Closed(b *bolted.Bolted) error {
+func (l metricsChangeListener) Closed() error {
 	dbname := string(l)
 	numberOfWriteTransactionsVec.DeleteLabelValues(dbname)
 	numberOfSuccessfulWriteTransactionsVec.DeleteLabelValues(dbname)
