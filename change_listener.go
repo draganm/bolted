@@ -2,20 +2,21 @@ package bolted
 
 // ChangeListener will receive following callbacks during a write transaction:
 type ChangeListener interface {
-	Added(b *Bolted) error
+	Opened(b *Bolted) error
 	Start(w WriteTx) error
 	Delete(w WriteTx, path string) error
 	CreateMap(w WriteTx, path string) error
 	Put(w WriteTx, path string, newValue []byte) error
 	BeforeCommit(w WriteTx) error
 	AfterTransaction(err error) error
+	Closed() error
 }
 
 type CompositeChangeListener []ChangeListener
 
-func (c CompositeChangeListener) Added(b *Bolted) error {
+func (c CompositeChangeListener) Opened(b *Bolted) error {
 	for _, cl := range c {
-		err := cl.Added(b)
+		err := cl.Opened(b)
 		if err != nil {
 			return err
 		}
@@ -76,6 +77,16 @@ func (c CompositeChangeListener) BeforeCommit(w WriteTx) error {
 func (c CompositeChangeListener) AfterTransaction(err error) error {
 	for _, cl := range c {
 		err := cl.AfterTransaction(err)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c CompositeChangeListener) Closed() error {
+	for _, cl := range c {
+		err := cl.Closed()
 		if err != nil {
 			return err
 		}

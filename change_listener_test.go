@@ -9,17 +9,18 @@ import (
 )
 
 type testChangeListener struct {
-	addedCalled            bool
+	openedCalled           bool
 	startCalled            bool
 	deleteCalled           bool
 	createMapCalled        bool
 	putCalled              bool
 	beforeCommitCalled     bool
 	afterTransactionCalled bool
+	closedCalled           bool
 }
 
-func (c *testChangeListener) Added(b *bolted.Bolted) error {
-	c.addedCalled = true
+func (c *testChangeListener) Opened(b *bolted.Bolted) error {
+	c.openedCalled = true
 	return nil
 }
 
@@ -47,11 +48,14 @@ func (c *testChangeListener) AfterTransaction(err error) error {
 	c.afterTransactionCalled = true
 	return nil
 }
+func (c *testChangeListener) Closed() error {
+	c.closedCalled = true
+	return nil
+}
 
 func TestChangeListener(t *testing.T) {
 	cl := &testChangeListener{}
 	bd, cleanup := openEmptyDatabase(t, bolted.WithChangeListeners(cl))
-	defer cleanup()
 
 	err := bd.Write(func(tx bolted.WriteTx) error {
 		err := tx.CreateMap("test")
@@ -72,7 +76,9 @@ func TestChangeListener(t *testing.T) {
 		return nil
 	})
 
-	require.True(t, cl.addedCalled)
+	cleanup()
+
+	require.True(t, cl.openedCalled)
 	require.True(t, cl.startCalled)
 	require.True(t, cl.beforeCommitCalled)
 	require.True(t, cl.afterTransactionCalled)
@@ -80,6 +86,8 @@ func TestChangeListener(t *testing.T) {
 	require.True(t, cl.deleteCalled)
 	require.True(t, cl.createMapCalled)
 	require.True(t, cl.putCalled)
+
+	require.True(t, cl.closedCalled)
 
 	require.NoError(t, err)
 }

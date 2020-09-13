@@ -44,7 +44,7 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 		}
 	}
 
-	err = b.changeListeners.Added(b)
+	err = b.changeListeners.Opened(b)
 	if err != nil {
 		return nil, errors.Wrap(err, "while handling Added by one of the change listeners")
 	}
@@ -54,7 +54,11 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 }
 
 func (b *Bolted) Close() error {
-	return b.db.Close()
+	err := b.db.Close()
+	if err != nil {
+		return err
+	}
+	return b.changeListeners.Closed()
 }
 
 type WriteTx interface {
