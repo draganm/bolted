@@ -269,7 +269,8 @@ func (w *writeTx) Exists(path string) (bool, error) {
 	}
 
 	if len(parts) == 0 {
-		return false, errors.New("cannot get value of root")
+		// root always exists
+		return true, nil
 	}
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
@@ -291,6 +292,42 @@ func (w *writeTx) Exists(path string) (bool, error) {
 
 	if v != nil {
 		return true, nil
+	}
+
+	return bucket.Bucket([]byte(last)) != nil, nil
+
+}
+
+func (w *writeTx) IsMap(path string) (bool, error) {
+	parts, err := dbpath.Split(path)
+	if err != nil {
+		return false, err
+	}
+
+	if len(parts) == 0 {
+		// root is always a map
+		return true, nil
+	}
+
+	var bucket = w.btx.Bucket([]byte(rootBucketName))
+
+	if bucket == nil {
+		return false, errors.New("root bucket not found")
+	}
+
+	for _, p := range parts[:len(parts)-1] {
+		bucket = bucket.Bucket([]byte(p))
+		if bucket == nil {
+			return false, errors.New("one of the parent buckets does not exist")
+		}
+	}
+
+	last := parts[len(parts)-1]
+
+	v := bucket.Get([]byte(last))
+
+	if v != nil {
+		return false, nil
 	}
 
 	return bucket.Bucket([]byte(last)) != nil, nil

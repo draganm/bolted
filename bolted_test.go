@@ -233,9 +233,17 @@ func TestPutAndGet(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ex)
 
+			isMap, err := tx.IsMap("test")
+			require.NoError(t, err)
+			require.True(t, isMap)
+
 			ex, err = tx.Exists("test/foo")
 			require.NoError(t, err)
 			require.True(t, ex)
+
+			isMap, err = tx.IsMap("test/foo")
+			require.NoError(t, err)
+			require.False(t, isMap)
 
 			return err
 		})
