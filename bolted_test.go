@@ -237,6 +237,10 @@ func TestPutAndGet(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, isMap)
 
+			cnt, err := tx.Size("test")
+			require.NoError(t, err)
+			require.Equal(t, uint64(1), cnt)
+
 			ex, err = tx.Exists("test/foo")
 			require.NoError(t, err)
 			require.True(t, ex)
@@ -244,6 +248,10 @@ func TestPutAndGet(t *testing.T) {
 			isMap, err = tx.IsMap("test/foo")
 			require.NoError(t, err)
 			require.False(t, isMap)
+
+			cnt, err = tx.Size("test/foo")
+			require.NoError(t, err)
+			require.Equal(t, uint64(3), cnt)
 
 			return err
 		})

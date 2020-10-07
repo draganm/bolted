@@ -73,6 +73,7 @@ type ReadTx interface {
 	Iterator(path string) (*Iterator, error)
 	Exists(path string) (bool, error)
 	IsMap(path string) (bool, error)
+	Size(path string) (uint64, error)
 }
 
 func (b *Bolted) Write(f func(tx WriteTx) error) error {

@@ -333,3 +333,44 @@ func (w *writeTx) IsMap(path string) (bool, error) {
 	return bucket.Bucket([]byte(last)) != nil, nil
 
 }
+
+func (w *writeTx) Size(path string) (uint64, error) {
+	parts, err := dbpath.Split(path)
+	if err != nil {
+		return 0, err
+	}
+
+	var bucket = w.btx.Bucket([]byte(rootBucketName))
+
+	if bucket == nil {
+		return 0, errors.New("root bucket not found")
+	}
+
+	if len(parts) == 0 {
+		return uint64(bucket.Stats().KeyN), nil
+	}
+
+	for _, p := range parts[:len(parts)-1] {
+		bucket = bucket.Bucket([]byte(p))
+		if bucket == nil {
+			return 0, errors.New("one of the parent buckets does not exist")
+		}
+	}
+
+	last := parts[len(parts)-1]
+
+	v := bucket.Get([]byte(last))
+
+	if v != nil {
+		return uint64(len(v)), nil
+	}
+
+	bucket = bucket.Bucket([]byte(last))
+
+	if bucket == nil {
+		return 0, errors.New("does not exist")
+	}
+
+	return uint64(bucket.Stats().KeyN), nil
+
+}
