@@ -86,7 +86,14 @@ func (w *writeTx) Delete(path string) error {
 
 	val := bucket.Get(last)
 	if val != nil {
-		return bucket.Delete(last)
+		err = bucket.Delete(last)
+		if err != nil {
+			return err
+		}
+
+		if !w.readOnly {
+			return w.changeListeners.Delete(w, path)
+		}
 	}
 
 	b := bucket.Bucket(last)
