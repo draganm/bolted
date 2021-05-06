@@ -3,6 +3,7 @@ package bolted
 import (
 	"os"
 
+	"github.com/draganm/bolted/dbpath"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
@@ -125,6 +126,12 @@ func (b *Bolted) Read(f func(tx ReadTx) error) error {
 	})
 }
 
-func (b *Bolted) ObservePath(path string) (chan ObservedEvent, func()) {
-	return b.obs.observePath(path)
+func (b *Bolted) ObservePath(path string) (chan ObservedEvent, func(), error) {
+	cp, err := dbpath.ToCanonical(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ev, cl := b.obs.observePath(cp)
+	return ev, cl, nil
 }

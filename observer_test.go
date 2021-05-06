@@ -13,7 +13,8 @@ func TestObservePath(t *testing.T) {
 
 	defer cleanupDatabase()
 
-	updates, close := db.ObservePath("foo")
+	updates, close, err := db.ObservePath("foo")
+	require.NoError(t, err)
 
 	defer close()
 

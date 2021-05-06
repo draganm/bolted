@@ -50,7 +50,7 @@ func (w *writeTx) CreateMap(path string) error {
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.CreateMap(w, path)
+		return w.changeListeners.CreateMap(w, dbpath.Join(parts...))
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (w *writeTx) Delete(path string) error {
 		}
 
 		if !w.readOnly {
-			return w.changeListeners.Delete(w, path)
+			return w.changeListeners.Delete(w, dbpath.Join(parts...))
 		}
 	}
 
@@ -108,7 +108,7 @@ func (w *writeTx) Delete(path string) error {
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.Delete(w, path)
+		return w.changeListeners.Delete(w, dbpath.Join(parts...))
 	}
 
 	return nil
@@ -149,7 +149,7 @@ func (w *writeTx) Put(path string, value []byte) error {
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.Put(w, path, value)
+		return w.changeListeners.Put(w, dbpath.Join(parts...), value)
 	}
 
 	return nil
