@@ -10,6 +10,7 @@ import (
 type Bolted struct {
 	db              *bolt.DB
 	changeListeners CompositeChangeListener
+	obs             *observer
 }
 
 const rootBucketName = "root"
@@ -35,7 +36,13 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 		return nil, errors.Wrap(err, "while creating root bucket")
 	}
 
-	b := &Bolted{db: db}
+	obs := newObserver()
+
+	b := &Bolted{
+		db:              db,
+		changeListeners: CompositeChangeListener{obs},
+		obs:             obs,
+	}
 
 	for _, o := range options {
 		err = o(b)
@@ -116,4 +123,8 @@ func (b *Bolted) Read(f func(tx ReadTx) error) error {
 		}
 		return f(wtx)
 	})
+}
+
+func (b *Bolted) ObservePath(path string) (chan ObservedEvent, func()) {
+	return b.obs.observePath(path)
 }

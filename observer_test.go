@@ -1,51 +1,19 @@
-package observer_test
+package bolted_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/draganm/bolted"
-	"github.com/draganm/bolted/observer"
 	"github.com/stretchr/testify/require"
 )
 
-var _ bolted.ChangeListener = &observer.Observer{}
-
-func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, func()) {
-	td, err := ioutil.TempDir("", "")
-	require.NoError(t, err)
-	removeTempDir := func() {
-		err = os.RemoveAll(td)
-		require.NoError(t, err)
-	}
-
-	db, err := bolted.Open(filepath.Join(td, "db"), 0660, opts...)
-
-	require.NoError(t, err)
-
-	closeDatabase := func() {
-		err = db.Close()
-		require.NoError(t, err)
-	}
-
-	return db, func() {
-		closeDatabase()
-		removeTempDir()
-	}
-
-}
-
 func TestObservePath(t *testing.T) {
 
-	o := observer.New()
-
-	db, cleanupDatabase := openEmptyDatabase(t, bolted.WithChangeListeners(o))
+	db, cleanupDatabase := openEmptyDatabase(t)
 
 	defer cleanupDatabase()
 
-	updates, close := o.ObservePath("foo")
+	updates, close := db.ObservePath("foo")
 
 	defer close()
 
@@ -57,8 +25,8 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, observer.ObservedEvent{
-			"foo": observer.MapCreated,
+		require.Equal(t, bolted.ObservedEvent{
+			"foo": bolted.MapCreated,
 		}, ev)
 
 	})
@@ -71,8 +39,8 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, observer.ObservedEvent{
-			"foo/bar": observer.ValueSet,
+		require.Equal(t, bolted.ObservedEvent{
+			"foo/bar": bolted.ValueSet,
 		}, ev)
 	})
 
@@ -84,8 +52,8 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, observer.ObservedEvent{
-			"foo/bar": observer.Deleted,
+		require.Equal(t, bolted.ObservedEvent{
+			"foo/bar": bolted.Deleted,
 		}, ev)
 	})
 
@@ -102,8 +70,8 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, observer.ObservedEvent{
-			"foo": observer.Deleted,
+		require.Equal(t, bolted.ObservedEvent{
+			"foo": bolted.Deleted,
 		}, ev)
 	})
 
@@ -135,9 +103,9 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, observer.ObservedEvent{
-			"foo":     observer.MapCreated,
-			"foo/bar": observer.ValueSet,
+		require.Equal(t, bolted.ObservedEvent{
+			"foo":     bolted.MapCreated,
+			"foo/bar": bolted.ValueSet,
 		}, ev)
 	})
 

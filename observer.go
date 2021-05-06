@@ -1,13 +1,12 @@
-package observer
+package bolted
 
 import (
 	"sync"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 )
 
-type Observer struct {
+type observer struct {
 	mu              *sync.Mutex
 	observers       map[int]*receiver
 	nextObserverKey int
@@ -106,9 +105,12 @@ func (r *receiver) handleEvent(path string, t ChangeType) {
 }
 
 func (r *receiver) broadcast() {
+	// TODO add unbound channel?
 	select {
 	case r.eventsChan <- r.event:
 		// all good, just don't block
+	default:
+		// channel is full
 	}
 	r.event = nil
 }
@@ -120,8 +122,8 @@ func newReceiver(path string) *receiver {
 	}
 }
 
-func New() *Observer {
-	return &Observer{
+func newObserver() *observer {
+	return &observer{
 		mu:        new(sync.Mutex),
 		observers: make(map[int]*receiver),
 	}
@@ -138,7 +140,7 @@ const (
 
 type ObservedEvent map[string]ChangeType
 
-func (w *Observer) ObservePath(path string) (chan ObservedEvent, func()) {
+func (w *observer) observePath(path string) (chan ObservedEvent, func()) {
 	w.mu.Lock()
 	observer := newReceiver(path)
 	observerKey := w.nextObserverKey
@@ -163,11 +165,11 @@ func (w *Observer) ObservePath(path string) (chan ObservedEvent, func()) {
 
 }
 
-func (w *Observer) Opened(b *bolted.Bolted) error {
+func (w *observer) Opened(b *Bolted) error {
 	return nil
 }
 
-func (w *Observer) Start(c bolted.WriteTx) error {
+func (w *observer) Start(c WriteTx) error {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.reset()
@@ -176,7 +178,7 @@ func (w *Observer) Start(c bolted.WriteTx) error {
 	return nil
 }
 
-func (w *Observer) updateObservers(path string, t ChangeType) {
+func (w *observer) updateObservers(path string, t ChangeType) {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.handleEvent(path, t)
@@ -184,26 +186,26 @@ func (w *Observer) updateObservers(path string, t ChangeType) {
 	w.mu.Unlock()
 }
 
-func (w *Observer) Delete(tx bolted.WriteTx, path string) error {
+func (w *observer) Delete(tx WriteTx, path string) error {
 	w.updateObservers(path, Deleted)
 	return nil
 }
 
-func (w *Observer) CreateMap(tx bolted.WriteTx, path string) error {
+func (w *observer) CreateMap(tx WriteTx, path string) error {
 	w.updateObservers(path, MapCreated)
 	return nil
 }
 
-func (w *Observer) Put(tx bolted.WriteTx, path string, newValue []byte) error {
+func (w *observer) Put(tx WriteTx, path string, newValue []byte) error {
 	w.updateObservers(path, ValueSet)
 	return nil
 }
 
-func (w *Observer) BeforeCommit(tx bolted.WriteTx) error {
+func (w *observer) BeforeCommit(tx WriteTx) error {
 	return nil
 }
 
-func (w *Observer) AfterTransaction(err error) error {
+func (w *observer) AfterTransaction(err error) error {
 	w.mu.Lock()
 
 	if err == nil {
@@ -216,6 +218,6 @@ func (w *Observer) AfterTransaction(err error) error {
 }
 
 // Closed TODO: add closing of the database semantics
-func (w *Observer) Closed() error {
+func (w *observer) Closed() error {
 	return nil
 }
