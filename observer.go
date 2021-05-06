@@ -1,9 +1,8 @@
 package bolted
 
 import (
+	"strings"
 	"sync"
-
-	"github.com/draganm/bolted/dbpath"
 )
 
 type observer struct {
@@ -22,83 +21,35 @@ func (r *receiver) reset() {
 	r.event = make(ObservedEvent)
 }
 
-func isPathEqual(p1, p2 string) bool {
-	p1p, err := dbpath.Split(p1)
-	if err != nil {
-		return false
-	}
-
-	p2p, err := dbpath.Split(p2)
-	if err != nil {
-		return false
-	}
-
-	if len(p1p) != len(p2p) {
-		return false
-	}
-
-	for i, p := range p1p {
-		if p2p[i] != p {
-			return false
-		}
-	}
-
-	return true
-}
-
-func isPrefixOf(p1, p2 string) bool {
-	p1p, err := dbpath.Split(p1)
-	if err != nil {
-		return false
-	}
-
-	p2p, err := dbpath.Split(p2)
-	if err != nil {
-		return false
-	}
-
-	if len(p1) > len(p2) {
-		return false
-	}
-
-	for i, p := range p1p {
-		if p2p[i] != p {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (r *receiver) handleEvent(path string, t ChangeType) {
 
 	switch t {
 	case Deleted:
 		// delete from event all children
 		for k := range r.event {
-			if isPrefixOf(path, k) {
+			if strings.HasPrefix(k, path) {
 				delete(r.event, k)
 			}
 		}
 
-		if isPrefixOf(path, r.path) {
+		if strings.HasPrefix(r.path, path) {
 			r.event[r.path] = Deleted
 		}
 
-		if isPrefixOf(path, r.path) {
+		if strings.HasPrefix(r.path, path) {
 			r.event[r.path] = Deleted
 		}
 
-		if isPrefixOf(r.path, path) {
+		if strings.HasPrefix(path, r.path) {
 			r.event[path] = Deleted
 		}
 
 	case ValueSet:
-		if isPrefixOf(r.path, path) {
+		if strings.HasPrefix(path, r.path) {
 			r.event[path] = ValueSet
 		}
 	case MapCreated:
-		if isPrefixOf(r.path, path) {
+		if strings.HasPrefix(path, r.path) {
 			r.event[path] = MapCreated
 		}
 	}
