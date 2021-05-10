@@ -70,18 +70,18 @@ func (b *Bolted) Close() error {
 }
 
 type WriteTx interface {
-	CreateMap(path string) error
-	Delete(path string) error
-	Put(path string, value []byte) error
+	CreateMap(path dbpath.Path) error
+	Delete(path dbpath.Path) error
+	Put(path dbpath.Path, value []byte) error
 	ReadTx
 }
 
 type ReadTx interface {
-	Get(path string) ([]byte, error)
-	Iterator(path string) (*Iterator, error)
-	Exists(path string) (bool, error)
-	IsMap(path string) (bool, error)
-	Size(path string) (uint64, error)
+	Get(path dbpath.Path) ([]byte, error)
+	Iterator(path dbpath.Path) (*Iterator, error)
+	Exists(path dbpath.Path) (bool, error)
+	IsMap(path dbpath.Path) (bool, error)
+	Size(path dbpath.Path) (uint64, error)
 }
 
 func (b *Bolted) Write(f func(tx WriteTx) error) error {

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/dbpath"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -57,15 +58,15 @@ func (l metricsChangeListener) Start(w bolted.WriteTx) error {
 	return nil
 }
 
-func (l metricsChangeListener) Delete(w bolted.WriteTx, path string) error {
+func (l metricsChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) CreateMap(w bolted.WriteTx, path string) error {
+func (l metricsChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) Put(w bolted.WriteTx, path string, newValue []byte) error {
+func (l metricsChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
 	return nil
 }
 

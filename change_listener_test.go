@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/dbpath"
 )
 
 type testChangeListener struct {
@@ -28,15 +29,15 @@ func (c *testChangeListener) Start(w bolted.WriteTx) error {
 	c.startCalled = true
 	return nil
 }
-func (c *testChangeListener) Delete(w bolted.WriteTx, path string) error {
+func (c *testChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
 	c.deleteCalled = true
 	return nil
 }
-func (c *testChangeListener) CreateMap(w bolted.WriteTx, path string) error {
+func (c *testChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
 	c.createMapCalled = true
 	return nil
 }
-func (c *testChangeListener) Put(w bolted.WriteTx, path string, newValue []byte) error {
+func (c *testChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
 	c.putCalled = true
 	return nil
 }
@@ -58,17 +59,17 @@ func TestChangeListener(t *testing.T) {
 	bd, cleanup := openEmptyDatabase(t, bolted.WithChangeListeners(cl))
 
 	err := bd.Write(func(tx bolted.WriteTx) error {
-		err := tx.CreateMap("test")
+		err := tx.CreateMap(dbpath.ToPath("test"))
 		if err != nil {
 			return err
 		}
 
-		err = tx.Put("test/abc", []byte{1, 2, 3})
+		err = tx.Put(dbpath.ToPath("test", "abc"), []byte{1, 2, 3})
 		if err != nil {
 			return err
 		}
 
-		err = tx.Delete("test")
+		err = tx.Delete(dbpath.ToPath("test"))
 		if err != nil {
 			return err
 		}

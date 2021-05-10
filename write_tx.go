@@ -15,16 +15,11 @@ type writeTx struct {
 
 var ErrNotFound = errors.New("not found")
 
-func (w *writeTx) CreateMap(path string) error {
+func (w *writeTx) CreateMap(path dbpath.Path) error {
 
 	// TODO: create an uniform error layer
 
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return err
-	}
-
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		return errors.New("root map already exists")
 	}
 
@@ -34,38 +29,31 @@ func (w *writeTx) CreateMap(path string) error {
 		return errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
-	_, err = bucket.CreateBucket([]byte(last))
+	_, err := bucket.CreateBucket([]byte(last))
 
 	if err != nil {
 		return err
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.CreateMap(w, dbpath.Join(parts...))
+		return w.changeListeners.CreateMap(w, path)
 	}
 
 	return nil
 }
 
-func (w *writeTx) Delete(path string) error {
+func (w *writeTx) Delete(path dbpath.Path) error {
 
-	// TODO: create an uniform error layer
-
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return err
-	}
-
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		return errors.New("root cannot be deleted")
 	}
 
@@ -75,24 +63,24 @@ func (w *writeTx) Delete(path string) error {
 		return errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := []byte(parts[len(parts)-1])
+	last := []byte(path[len(path)-1])
 
 	val := bucket.Get(last)
 	if val != nil {
-		err = bucket.Delete(last)
+		err := bucket.Delete(last)
 		if err != nil {
 			return err
 		}
 
 		if !w.readOnly {
-			return w.changeListeners.Delete(w, dbpath.Join(parts...))
+			return w.changeListeners.Delete(w, path)
 		}
 	}
 
@@ -101,30 +89,23 @@ func (w *writeTx) Delete(path string) error {
 		return ErrNotFound
 	}
 
-	err = bucket.DeleteBucket(last)
+	err := bucket.DeleteBucket(last)
 
 	if err != nil {
 		return err
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.Delete(w, dbpath.Join(parts...))
+		return w.changeListeners.Delete(w, path)
 	}
 
 	return nil
 
 }
 
-func (w *writeTx) Put(path string, value []byte) error {
+func (w *writeTx) Put(path dbpath.Path, value []byte) error {
 
-	// TODO: create an uniform error layer
-
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return err
-	}
-
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		return errors.New("root cannot be deleted")
 	}
 
@@ -134,38 +115,31 @@ func (w *writeTx) Put(path string, value []byte) error {
 		return errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
-	err = bucket.Put([]byte(last), value)
+	err := bucket.Put([]byte(last), value)
 	if err != nil {
 		return err
 	}
 
 	if !w.readOnly {
-		return w.changeListeners.Put(w, dbpath.Join(parts...), value)
+		return w.changeListeners.Put(w, path, value)
 	}
 
 	return nil
 
 }
 
-func (w *writeTx) Get(path string) ([]byte, error) {
+func (w *writeTx) Get(path dbpath.Path) ([]byte, error) {
 
-	// TODO: create an uniform error layer
-
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		return nil, errors.New("cannot get value of root")
 	}
 
@@ -175,14 +149,14 @@ func (w *writeTx) Get(path string) ([]byte, error) {
 		return nil, errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return nil, errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
 	v := bucket.Get([]byte(last))
 
@@ -238,19 +212,15 @@ func (i *Iterator) Last() {
 	i.Done = k == nil
 }
 
-func (w *writeTx) Iterator(path string) (*Iterator, error) {
+func (w *writeTx) Iterator(path dbpath.Path) (*Iterator, error) {
 
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return nil, err
-	}
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
 
 	if bucket == nil {
 		return nil, errors.New("root bucket not found")
 	}
 
-	for _, p := range parts {
+	for _, p := range path {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return nil, errors.New("one of the parent buckets does not exist")
@@ -269,13 +239,9 @@ func (w *writeTx) Iterator(path string) (*Iterator, error) {
 
 }
 
-func (w *writeTx) Exists(path string) (bool, error) {
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return false, err
-	}
+func (w *writeTx) Exists(path dbpath.Path) (bool, error) {
 
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		// root always exists
 		return true, nil
 	}
@@ -286,14 +252,14 @@ func (w *writeTx) Exists(path string) (bool, error) {
 		return false, errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return false, errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
 	v := bucket.Get([]byte(last))
 
@@ -305,13 +271,9 @@ func (w *writeTx) Exists(path string) (bool, error) {
 
 }
 
-func (w *writeTx) IsMap(path string) (bool, error) {
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return false, err
-	}
+func (w *writeTx) IsMap(path dbpath.Path) (bool, error) {
 
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		// root is always a map
 		return true, nil
 	}
@@ -322,14 +284,14 @@ func (w *writeTx) IsMap(path string) (bool, error) {
 		return false, errors.New("root bucket not found")
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return false, errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
 	v := bucket.Get([]byte(last))
 
@@ -341,11 +303,7 @@ func (w *writeTx) IsMap(path string) (bool, error) {
 
 }
 
-func (w *writeTx) Size(path string) (uint64, error) {
-	parts, err := dbpath.Split(path)
-	if err != nil {
-		return 0, err
-	}
+func (w *writeTx) Size(path dbpath.Path) (uint64, error) {
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
 
@@ -353,18 +311,18 @@ func (w *writeTx) Size(path string) (uint64, error) {
 		return 0, errors.New("root bucket not found")
 	}
 
-	if len(parts) == 0 {
+	if len(path) == 0 {
 		return uint64(bucket.Stats().KeyN), nil
 	}
 
-	for _, p := range parts[:len(parts)-1] {
+	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
 			return 0, errors.New("one of the parent buckets does not exist")
 		}
 	}
 
-	last := parts[len(parts)-1]
+	last := path[len(path)-1]
 
 	v := bucket.Get([]byte(last))
 

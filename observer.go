@@ -3,6 +3,8 @@ package bolted
 import (
 	"strings"
 	"sync"
+
+	"github.com/draganm/bolted/dbpath"
 )
 
 type observer struct {
@@ -21,36 +23,38 @@ func (r *receiver) reset() {
 	r.event = make(ObservedEvent)
 }
 
-func (r *receiver) handleEvent(path string, t ChangeType) {
+func (r *receiver) handleEvent(path dbpath.Path, t ChangeType) {
+
+	ps := path.String()
 
 	switch t {
 	case Deleted:
 		// delete from event all children
 		for k := range r.event {
-			if strings.HasPrefix(k, path) {
+			if strings.HasPrefix(k, ps) {
 				delete(r.event, k)
 			}
 		}
 
-		if strings.HasPrefix(r.path, path) {
+		if strings.HasPrefix(r.path, ps) {
 			r.event[r.path] = Deleted
 		}
 
-		if strings.HasPrefix(r.path, path) {
+		if strings.HasPrefix(r.path, ps) {
 			r.event[r.path] = Deleted
 		}
 
-		if strings.HasPrefix(path, r.path) {
-			r.event[path] = Deleted
+		if strings.HasPrefix(ps, r.path) {
+			r.event[ps] = Deleted
 		}
 
 	case ValueSet:
-		if strings.HasPrefix(path, r.path) {
-			r.event[path] = ValueSet
+		if strings.HasPrefix(ps, r.path) {
+			r.event[ps] = ValueSet
 		}
 	case MapCreated:
-		if strings.HasPrefix(path, r.path) {
-			r.event[path] = MapCreated
+		if strings.HasPrefix(ps, r.path) {
+			r.event[ps] = MapCreated
 		}
 	}
 }
@@ -129,7 +133,7 @@ func (w *observer) Start(c WriteTx) error {
 	return nil
 }
 
-func (w *observer) updateObservers(path string, t ChangeType) {
+func (w *observer) updateObservers(path dbpath.Path, t ChangeType) {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.handleEvent(path, t)
@@ -137,17 +141,17 @@ func (w *observer) updateObservers(path string, t ChangeType) {
 	w.mu.Unlock()
 }
 
-func (w *observer) Delete(tx WriteTx, path string) error {
+func (w *observer) Delete(tx WriteTx, path dbpath.Path) error {
 	w.updateObservers(path, Deleted)
 	return nil
 }
 
-func (w *observer) CreateMap(tx WriteTx, path string) error {
+func (w *observer) CreateMap(tx WriteTx, path dbpath.Path) error {
 	w.updateObservers(path, MapCreated)
 	return nil
 }
 
-func (w *observer) Put(tx WriteTx, path string, newValue []byte) error {
+func (w *observer) Put(tx WriteTx, path dbpath.Path, newValue []byte) error {
 	w.updateObservers(path, ValueSet)
 	return nil
 }

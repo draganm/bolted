@@ -7,6 +7,42 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Path []string
+
+func (p Path) Append(elements ...string) Path {
+	return append(p, elements...)
+}
+
+func (p Path) String() string {
+	return Join(p...)
+}
+
+func (p Path) IsPrefixOf(o Path) bool {
+	if len(p) > len(o) {
+		return false
+	}
+	for i, e := range p {
+		if e != o[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func Parse(p string) (Path, error) {
+	parts, err := Split(p)
+	if err != nil {
+		return nil, err
+	}
+	return Path(parts), nil
+}
+
+func ToPath(p ...string) Path {
+	return Path(p)
+}
+
+var NilPath = Path(nil)
+
 const Separator = "/"
 
 func Split(path string) ([]string, error) {
