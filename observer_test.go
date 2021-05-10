@@ -21,7 +21,8 @@ func TestObservePath(t *testing.T) {
 
 	t.Run("notification of created map", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("foo"))
+			tx.CreateMap(dbpath.ToPath("foo"))
+			return nil
 		})
 		require.NoError(t, err)
 
@@ -35,7 +36,8 @@ func TestObservePath(t *testing.T) {
 
 	t.Run("notification of set value", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			return nil
 		})
 		require.NoError(t, err)
 
@@ -48,7 +50,8 @@ func TestObservePath(t *testing.T) {
 
 	t.Run("notification of deleted value", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("foo", "bar"))
+			tx.Delete(dbpath.ToPath("foo", "bar"))
+			return nil
 		})
 		require.NoError(t, err)
 
@@ -61,12 +64,9 @@ func TestObservePath(t *testing.T) {
 
 	t.Run("notification of storing value and deleting", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			return tx.Delete(dbpath.ToPath("foo"))
+			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			tx.Delete(dbpath.ToPath("foo"))
+			return nil
 		})
 		require.NoError(t, err)
 
@@ -79,27 +79,12 @@ func TestObservePath(t *testing.T) {
 
 	t.Run("notification of storing value, deleting and re-creating", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.CreateMap(dbpath.ToPath("foo"))
-			if err != nil {
-				return err
-			}
-
-			err = tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			err = tx.Delete(dbpath.ToPath("foo"))
-			if err != nil {
-				return err
-			}
-
-			err = tx.CreateMap(dbpath.ToPath("foo"))
-			if err != nil {
-				return err
-			}
-
-			return tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			tx.CreateMap(dbpath.ToPath("foo"))
+			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			tx.Delete(dbpath.ToPath("foo"))
+			tx.CreateMap(dbpath.ToPath("foo"))
+			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
+			return nil
 		})
 		require.NoError(t, err)
 

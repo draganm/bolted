@@ -46,7 +46,8 @@ func TestCreateMap(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 	})
@@ -56,12 +57,14 @@ func TestCreateMap(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			return nil
 		})
 
 		require.EqualError(t, err, "bucket already exists")
@@ -72,22 +75,22 @@ func TestCreateMap(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test", "foo"))
+			tx.CreateMap(dbpath.ToPath("test", "foo"))
+			return nil
 		})
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			ex, err := tx.Exists(dbpath.ToPath("test"))
-			require.NoError(t, err)
+			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
-			ex, err = tx.Exists(dbpath.ToPath("test", "foo"))
-			require.NoError(t, err)
+			ex = tx.Exists(dbpath.ToPath("test", "foo"))
 			require.True(t, ex)
 
 			return err
@@ -105,7 +108,8 @@ func TestDelete(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("test"))
+			tx.Delete(dbpath.ToPath("test"))
+			return nil
 		})
 		require.Equal(t, bolted.ErrNotFound, err)
 	})
@@ -115,12 +119,14 @@ func TestDelete(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			return nil
 		})
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("test"))
+			tx.Delete(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 	})
@@ -130,16 +136,15 @@ func TestDelete(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.CreateMap(dbpath.ToPath("test"))
-			if err != nil {
-				return err
-			}
-			return tx.CreateMap(dbpath.ToPath("test", "foo"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test", "foo"))
+			return nil
 		})
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("test"))
+			tx.Delete(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 	})
@@ -149,16 +154,15 @@ func TestDelete(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.CreateMap(dbpath.ToPath("test"))
-			if err != nil {
-				return err
-			}
-			return tx.CreateMap(dbpath.ToPath("test", "foo"))
+			tx.CreateMap(dbpath.ToPath("test"))
+			tx.CreateMap(dbpath.ToPath("test", "foo"))
+			return nil
 		})
 
 		require.NoError(t, err)
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("test", "foo"))
+			tx.Delete(dbpath.ToPath("test", "foo"))
+			return nil
 		})
 		require.NoError(t, err)
 	})
@@ -168,12 +172,14 @@ func TestDelete(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			return nil
 		})
-
 		require.NoError(t, err)
+
 		err = db.Write(func(tx bolted.WriteTx) error {
-			return tx.Delete(dbpath.ToPath("test"))
+			tx.Delete(dbpath.ToPath("test"))
+			return nil
 		})
 		require.NoError(t, err)
 	})
@@ -187,15 +193,16 @@ func TestPutAndGet(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			return nil
 		})
 		require.NoError(t, err)
 
 		var val []byte
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			val, err = tx.Get(dbpath.ToPath("test"))
-			return err
+			val = tx.Get(dbpath.ToPath("test"))
+			return nil
 		})
 
 		require.NoError(t, err)
@@ -209,20 +216,17 @@ func TestPutAndGet(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.CreateMap(dbpath.ToPath("test"))
-			if err != nil {
-				return err
-			}
-
-			return tx.Put(dbpath.ToPath("test", "foo"), []byte{1, 2, 3})
+			tx.CreateMap(dbpath.ToPath("test"))
+			tx.Put(dbpath.ToPath("test", "foo"), []byte{1, 2, 3})
+			return nil
 		})
 		require.NoError(t, err)
 
 		var val []byte
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			val, err = tx.Get(dbpath.ToPath("test", "foo"))
-			return err
+			val = tx.Get(dbpath.ToPath("test", "foo"))
+			return nil
 		})
 
 		require.NoError(t, err)
@@ -230,28 +234,22 @@ func TestPutAndGet(t *testing.T) {
 		require.Equal(t, []byte{1, 2, 3}, val)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			ex, err := tx.Exists(dbpath.ToPath("test"))
-			require.NoError(t, err)
+			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
-			isMap, err := tx.IsMap(dbpath.ToPath("test"))
-			require.NoError(t, err)
+			isMap := tx.IsMap(dbpath.ToPath("test"))
 			require.True(t, isMap)
 
-			cnt, err := tx.Size(dbpath.ToPath("test"))
-			require.NoError(t, err)
+			cnt := tx.Size(dbpath.ToPath("test"))
 			require.Equal(t, uint64(1), cnt)
 
-			ex, err = tx.Exists(dbpath.ToPath("test", "foo"))
-			require.NoError(t, err)
+			ex = tx.Exists(dbpath.ToPath("test", "foo"))
 			require.True(t, ex)
 
-			isMap, err = tx.IsMap(dbpath.ToPath("test", "foo"))
-			require.NoError(t, err)
+			isMap = tx.IsMap(dbpath.ToPath("test", "foo"))
 			require.False(t, isMap)
 
-			cnt, err = tx.Size(dbpath.ToPath("test", "foo"))
-			require.NoError(t, err)
+			cnt = tx.Size(dbpath.ToPath("test", "foo"))
 			require.Equal(t, uint64(3), cnt)
 
 			return err
@@ -270,10 +268,7 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			it, err := tx.Iterator(dbpath.NilPath)
-			if err != nil {
-				return err
-			}
+			it := tx.Iterator(dbpath.NilPath)
 			require.True(t, it.Done)
 			return nil
 		})
@@ -286,15 +281,13 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			return tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
+			return nil
 		})
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator(dbpath.NilPath)
-			if err != nil {
-				return err
-			}
+			it := tx.Iterator(dbpath.NilPath)
 			require.False(t, it.Done)
 
 			require.Equal(t, "test", it.Key)
@@ -314,20 +307,14 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			return tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
+			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
+			return nil
 		})
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator(dbpath.NilPath)
-			if err != nil {
-				return err
-			}
+			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.Done)
 			require.Equal(t, "test1", it.Key)
@@ -366,26 +353,16 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
-			err := tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
-			if err != nil {
-				return err
-			}
-
-			err = tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
-			if err != nil {
-				return err
-			}
-
-			return tx.CreateMap(dbpath.ToPath("test3"))
+			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
+			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
+			tx.CreateMap(dbpath.ToPath("test3"))
+			return nil
 
 		})
 		require.NoError(t, err)
 
 		err = db.Read(func(tx bolted.ReadTx) error {
-			it, err := tx.Iterator(dbpath.NilPath)
-			if err != nil {
-				return err
-			}
+			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.Done)
 			require.Equal(t, "test1", it.Key)

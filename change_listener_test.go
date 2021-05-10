@@ -59,21 +59,9 @@ func TestChangeListener(t *testing.T) {
 	bd, cleanup := openEmptyDatabase(t, bolted.WithChangeListeners(cl))
 
 	err := bd.Write(func(tx bolted.WriteTx) error {
-		err := tx.CreateMap(dbpath.ToPath("test"))
-		if err != nil {
-			return err
-		}
-
-		err = tx.Put(dbpath.ToPath("test", "abc"), []byte{1, 2, 3})
-		if err != nil {
-			return err
-		}
-
-		err = tx.Delete(dbpath.ToPath("test"))
-		if err != nil {
-			return err
-		}
-
+		tx.CreateMap(dbpath.ToPath("test"))
+		tx.Put(dbpath.ToPath("test", "abc"), []byte{1, 2, 3})
+		tx.Delete(dbpath.ToPath("test"))
 		return nil
 	})
 
