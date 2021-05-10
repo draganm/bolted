@@ -2,6 +2,7 @@ package bolted_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -75,6 +76,21 @@ func TestObservePath(t *testing.T) {
 		require.Equal(t, bolted.ObservedEvent{
 			"foo": bolted.Deleted,
 		}, ev)
+	})
+
+	t.Run("no notification sent when unrelated subtree is changed", func(t *testing.T) {
+		err := db.Write(func(tx bolted.WriteTx) error {
+			tx.CreateMap(dbpath.ToPath("baz"))
+			return nil
+		})
+		require.NoError(t, err)
+
+		select {
+		case <-time.Tick(50 * time.Millisecond):
+			// expected
+		case <-updates:
+			require.Fail(t, "unexpected update event")
+		}
 	})
 
 	t.Run("notification of storing value, deleting and re-creating", func(t *testing.T) {

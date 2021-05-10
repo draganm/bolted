@@ -60,6 +60,9 @@ func (r *receiver) handleEvent(path dbpath.Path, t ChangeType) {
 }
 
 func (r *receiver) broadcast() {
+	if len(r.event) == 0 {
+		return
+	}
 	// TODO add unbound channel?
 	select {
 	case r.eventsChan <- r.event:
