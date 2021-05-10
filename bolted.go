@@ -138,12 +138,7 @@ func (b *Bolted) Read(f func(tx ReadTx) error) error {
 	})
 }
 
-func (b *Bolted) ObservePath(path string) (chan ObservedEvent, func(), error) {
-	cp, err := dbpath.ToCanonical(path)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ev, cl := b.obs.observePath(cp)
-	return ev, cl, nil
+func (b *Bolted) ObservePath(path dbpath.Path) (chan ObservedEvent, func()) {
+	ev, cl := b.obs.observePath(path.String())
+	return ev, cl
 }

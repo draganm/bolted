@@ -15,10 +15,13 @@ func TestObservePath(t *testing.T) {
 
 	defer cleanupDatabase()
 
-	updates, close, err := db.ObservePath("foo")
-	require.NoError(t, err)
-
+	updates, close := db.ObservePath(dbpath.ToPath("foo"))
 	defer close()
+
+	t.Run("initial event", func(t *testing.T) {
+		initEvent := <-updates
+		require.Equal(t, bolted.ObservedEvent{}, initEvent)
+	})
 
 	t.Run("notification of created map", func(t *testing.T) {
 		err := db.Write(func(tx bolted.WriteTx) error {

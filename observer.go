@@ -74,9 +74,11 @@ func (r *receiver) broadcast() {
 }
 
 func newReceiver(path string) *receiver {
+	ch := make(chan ObservedEvent, 1)
+	ch <- ObservedEvent{}
 	return &receiver{
 		path:       path,
-		eventsChan: make(chan ObservedEvent, 1),
+		eventsChan: ch,
 	}
 }
 
