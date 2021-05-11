@@ -10,7 +10,12 @@ import (
 type Path []string
 
 func (p Path) Append(elements ...string) Path {
-	return append(p, elements...)
+	cp := make(Path, len(p)+len(elements))
+	copy(cp, p)
+	for i, e := range elements {
+		cp[len(p)+i] = e
+	}
+	return cp
 }
 
 func (p Path) String() string {
