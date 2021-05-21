@@ -22,6 +22,14 @@ func (p Path) String() string {
 	return Join(p...)
 }
 
+func (p Path) ToMatcher() Matcher {
+	m := make(Matcher, len(p))
+	for i, pe := range p {
+		m[i] = exactMatcher(pe)
+	}
+	return m
+}
+
 func (p Path) IsPrefixOf(o Path) bool {
 	if len(p) > len(o) {
 		return false
