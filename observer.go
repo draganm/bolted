@@ -13,9 +13,11 @@ type observer struct {
 }
 
 type receiver struct {
-	m          dbpath.Matcher
-	eventsChan chan ObservedChanges
-	event      ObservedChanges
+	m dbpath.Matcher
+
+	eventsChan chan<- ObservedChanges
+
+	event ObservedChanges
 }
 
 func (r *receiver) reset() {
@@ -34,23 +36,60 @@ func (r *receiver) broadcast() {
 	if len(r.event) == 0 {
 		return
 	}
-	// TODO add unbound channel?
-	select {
-	case r.eventsChan <- r.event:
-		// all good, just don't block
-	default:
-		// channel is full
-	}
+	r.eventsChan <- r.event
 	r.event = nil
 }
 
-func newReceiver(m dbpath.Matcher) *receiver {
+func newReceiver(m dbpath.Matcher) (*receiver, <-chan ObservedChanges) {
 	ch := make(chan ObservedChanges, 1)
 	ch <- ObservedChanges{}
+
+	incoming := make(chan ObservedChanges, 1)
+
+	go func() {
+		buffer := []ObservedChanges{}
+
+		for {
+			if len(buffer) == 0 {
+				ev, ok := <-incoming
+				if !ok {
+					// reading cancelled
+					close(ch)
+					return
+				}
+				select {
+				case ch <- ev:
+					// all good
+				default:
+					// ok, have to wait
+					buffer = append(buffer, ev)
+				}
+				continue
+			}
+			select {
+			case ch <- buffer[0]:
+				buffer = buffer[1:]
+			case ev, ok := <-incoming:
+				if !ok {
+					// reading cancelled
+					close(ch)
+					return
+
+				}
+				buffer = append(buffer, ev)
+			}
+		}
+
+	}()
+
 	return &receiver{
 		m:          m,
 		eventsChan: ch,
-	}
+	}, ch
+}
+
+func (r *receiver) close() {
+	close(r.eventsChan)
 }
 
 func newObserver() *observer {
@@ -103,9 +142,9 @@ func (o ObservedChanges) update(path dbpath.Path, t ChangeType) ObservedChanges 
 	}
 }
 
-func (w *observer) observe(m dbpath.Matcher) (chan ObservedChanges, func()) {
+func (w *observer) observe(m dbpath.Matcher) (<-chan ObservedChanges, func()) {
 	w.mu.Lock()
-	observer := newReceiver(m)
+	observer, changesChan := newReceiver(m)
 	observerKey := w.nextObserverKey
 	w.observers[observerKey] = observer
 	w.nextObserverKey++
@@ -113,7 +152,7 @@ func (w *observer) observe(m dbpath.Matcher) (chan ObservedChanges, func()) {
 
 	closed := false
 
-	return observer.eventsChan, func() {
+	return changesChan, func() {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -122,7 +161,7 @@ func (w *observer) observe(m dbpath.Matcher) (chan ObservedChanges, func()) {
 		}
 
 		delete(w.observers, observerKey)
-		close(observer.eventsChan)
+		observer.close()
 		closed = true
 	}
 
