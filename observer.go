@@ -1,7 +1,6 @@
 package bolted
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/draganm/bolted/dbpath"
@@ -14,49 +13,21 @@ type observer struct {
 }
 
 type receiver struct {
-	path       string
-	eventsChan chan ObservedEvent
-	event      ObservedEvent
+	m          dbpath.Matcher
+	eventsChan chan ObservedChanges
+	event      ObservedChanges
 }
 
 func (r *receiver) reset() {
-	r.event = make(ObservedEvent)
+	r.event = nil
 }
 
 func (r *receiver) handleEvent(path dbpath.Path, t ChangeType) {
 
-	ps := path.String()
-
-	switch t {
-	case Deleted:
-		// delete from event all children
-		for k := range r.event {
-			if strings.HasPrefix(k, ps) {
-				delete(r.event, k)
-			}
-		}
-
-		if strings.HasPrefix(r.path, ps) {
-			r.event[r.path] = Deleted
-		}
-
-		if strings.HasPrefix(r.path, ps) {
-			r.event[r.path] = Deleted
-		}
-
-		if strings.HasPrefix(ps, r.path) {
-			r.event[ps] = Deleted
-		}
-
-	case ValueSet:
-		if strings.HasPrefix(ps, r.path) {
-			r.event[ps] = ValueSet
-		}
-	case MapCreated:
-		if strings.HasPrefix(ps, r.path) {
-			r.event[ps] = MapCreated
-		}
+	if t == ChangeTypeDeleted || r.m.Matches(path) {
+		r.event = r.event.update(path, t)
 	}
+
 }
 
 func (r *receiver) broadcast() {
@@ -73,11 +44,11 @@ func (r *receiver) broadcast() {
 	r.event = nil
 }
 
-func newReceiver(path string) *receiver {
-	ch := make(chan ObservedEvent, 1)
-	ch <- ObservedEvent{}
+func newReceiver(m dbpath.Matcher) *receiver {
+	ch := make(chan ObservedChanges, 1)
+	ch <- ObservedChanges{}
 	return &receiver{
-		path:       path,
+		m:          m,
 		eventsChan: ch,
 	}
 }
@@ -93,16 +64,48 @@ type ChangeType int
 
 const (
 	Unknown ChangeType = iota
-	MapCreated
-	ValueSet
-	Deleted
+	ChangeTypeMapCreated
+	ChangeTypeValueSet
+	ChangeTypeDeleted
 )
 
-type ObservedEvent map[string]ChangeType
+// type ObservedChanges map[string]ChangeType
+type ObservedChange struct {
+	Path dbpath.Path
+	Type ChangeType
+}
 
-func (w *observer) observePath(path string) (chan ObservedEvent, func()) {
+type ObservedChanges []ObservedChange
+
+func (o ObservedChanges) update(path dbpath.Path, t ChangeType) ObservedChanges {
+	switch t {
+	case ChangeTypeValueSet, ChangeTypeMapCreated:
+		for i, oc := range o {
+			if oc.Path.Equal(path) {
+				o[i].Type = t
+				return o
+			}
+		}
+		return append(o, ObservedChange{Path: path, Type: t})
+	case ChangeTypeDeleted:
+		m := path.ToMatcher().AppendAnySubpathMatcher()
+		oc := ObservedChanges{}
+		for _, c := range o {
+			if !m.Matches(c.Path) {
+				oc = append(oc, c)
+			}
+		}
+
+		oc = append(oc, ObservedChange{Path: path, Type: t})
+		return oc
+	default:
+		return o
+	}
+}
+
+func (w *observer) observe(m dbpath.Matcher) (chan ObservedChanges, func()) {
 	w.mu.Lock()
-	observer := newReceiver(path)
+	observer := newReceiver(m)
 	observerKey := w.nextObserverKey
 	w.observers[observerKey] = observer
 	w.nextObserverKey++
@@ -147,17 +150,17 @@ func (w *observer) updateObservers(path dbpath.Path, t ChangeType) {
 }
 
 func (w *observer) Delete(tx WriteTx, path dbpath.Path) error {
-	w.updateObservers(path, Deleted)
+	w.updateObservers(path, ChangeTypeDeleted)
 	return nil
 }
 
 func (w *observer) CreateMap(tx WriteTx, path dbpath.Path) error {
-	w.updateObservers(path, MapCreated)
+	w.updateObservers(path, ChangeTypeMapCreated)
 	return nil
 }
 
 func (w *observer) Put(tx WriteTx, path dbpath.Path, newValue []byte) error {
-	w.updateObservers(path, ValueSet)
+	w.updateObservers(path, ChangeTypeValueSet)
 	return nil
 }
 

@@ -15,12 +15,12 @@ func TestObservePath(t *testing.T) {
 
 	defer cleanupDatabase()
 
-	updates, close := db.ObservePath(dbpath.ToPath("foo"))
+	updates, close := db.Observe(dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())
 	defer close()
 
 	t.Run("initial event", func(t *testing.T) {
 		initEvent := <-updates
-		require.Equal(t, bolted.ObservedEvent{}, initEvent)
+		require.Equal(t, bolted.ObservedChanges{}, initEvent)
 	})
 
 	t.Run("notification of created map", func(t *testing.T) {
@@ -32,8 +32,11 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, bolted.ObservedEvent{
-			"foo": bolted.MapCreated,
+		require.Equal(t, bolted.ObservedChanges{
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo"),
+				Type: bolted.ChangeTypeMapCreated,
+			},
 		}, ev)
 
 	})
@@ -47,8 +50,11 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, bolted.ObservedEvent{
-			"foo/bar": bolted.ValueSet,
+		require.Equal(t, bolted.ObservedChanges{
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo", "bar"),
+				Type: bolted.ChangeTypeValueSet,
+			},
 		}, ev)
 	})
 
@@ -61,8 +67,11 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, bolted.ObservedEvent{
-			"foo/bar": bolted.Deleted,
+		require.Equal(t, bolted.ObservedChanges{
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo", "bar"),
+				Type: bolted.ChangeTypeDeleted,
+			},
 		}, ev)
 	})
 
@@ -76,8 +85,11 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, bolted.ObservedEvent{
-			"foo": bolted.Deleted,
+		require.Equal(t, bolted.ObservedChanges{
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo"),
+				Type: bolted.ChangeTypeDeleted,
+			},
 		}, ev)
 	})
 
@@ -109,9 +121,15 @@ func TestObservePath(t *testing.T) {
 
 		ev := <-updates
 
-		require.Equal(t, bolted.ObservedEvent{
-			"foo":     bolted.MapCreated,
-			"foo/bar": bolted.ValueSet,
+		require.Equal(t, bolted.ObservedChanges{
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo"),
+				Type: bolted.ChangeTypeMapCreated,
+			},
+			bolted.ObservedChange{
+				Path: dbpath.ToPath("foo", "bar"),
+				Type: bolted.ChangeTypeValueSet,
+			},
 		}, ev)
 	})
 

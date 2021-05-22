@@ -42,6 +42,18 @@ func (p Path) IsPrefixOf(o Path) bool {
 	return true
 }
 
+func (p Path) Equal(o Path) bool {
+	if len(p) != len(o) {
+		return false
+	}
+	for i, e := range p {
+		if e != o[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func Parse(p string) (Path, error) {
 	parts, err := Split(p)
 	if err != nil {
