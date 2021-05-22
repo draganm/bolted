@@ -102,7 +102,7 @@ func newObserver() *observer {
 type ChangeType int
 
 const (
-	Unknown ChangeType = iota
+	ChangeTypeNoChange ChangeType = iota
 	ChangeTypeMapCreated
 	ChangeTypeValueSet
 	ChangeTypeDeleted
@@ -115,6 +115,22 @@ type ObservedChange struct {
 }
 
 type ObservedChanges []ObservedChange
+
+func (o ObservedChanges) TypeOfChange(path dbpath.Path) ChangeType {
+	for _, oc := range o {
+		switch oc.Type {
+		case ChangeTypeDeleted:
+			if oc.Path.ToMatcher().Matches(path) {
+				return ChangeTypeDeleted
+			}
+		case ChangeTypeMapCreated, ChangeTypeValueSet:
+			if path.Equal(oc.Path) {
+				return oc.Type
+			}
+		}
+	}
+	return ChangeTypeNoChange
+}
 
 func (o ObservedChanges) update(path dbpath.Path, t ChangeType) ObservedChanges {
 	switch t {
