@@ -130,7 +130,20 @@ func (b *Bolted) Write(f func(tx WriteTx) error) error {
 }
 
 func (b *Bolted) Read(f func(tx ReadTx) error) error {
-	return b.db.View(func(btx *bolt.Tx) error {
+	return b.db.View(func(btx *bolt.Tx) (err error) {
+
+		defer func() {
+			e := recover()
+			if e == nil {
+				return
+			}
+			var isError bool
+			err, isError = e.(error)
+			if !isError {
+				panic(e)
+			}
+		}()
+
 		wtx := &writeTx{
 			btx: btx,
 		}
