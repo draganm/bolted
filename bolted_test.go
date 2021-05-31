@@ -67,7 +67,7 @@ func TestCreateMap(t *testing.T) {
 			return nil
 		})
 
-		require.EqualError(t, err, "bucket already exists")
+		require.EqualError(t, err, "CreateMap(test): bucket already exists")
 	})
 
 	t.Run("create map nested", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestDelete(t *testing.T) {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
-		require.Equal(t, bolted.ErrNotFound, err)
+		require.True(t, bolted.IsNotFound(err))
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
