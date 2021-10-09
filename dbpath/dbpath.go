@@ -1,10 +1,9 @@
 package dbpath
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type Path []string
@@ -79,7 +78,7 @@ func Split(path string) ([]string, error) {
 	for i, p := range parts {
 		up, err := UnescapePart(p)
 		if err != nil {
-			return nil, errors.Wrapf(err, "while unescaping part at position %d: %q", i, p)
+			return nil, fmt.Errorf("while unescaping part at position %d: %q: %w", i, p, err)
 		}
 		if up != "" {
 			res = append(res, up)

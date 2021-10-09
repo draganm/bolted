@@ -3,9 +3,8 @@ package dump
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 type Reader struct {
@@ -52,7 +51,7 @@ func (r Reader) Next() (Item, error) {
 
 		return Item{Type: Put, Key: key, Value: value}, nil
 	default:
-		return Item{}, errors.Errorf("unknown item type %d", tb)
+		return Item{}, fmt.Errorf("unknown item type %d", tb)
 	}
 }
 

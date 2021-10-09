@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -51,7 +52,7 @@ func (l metricsChangeListener) Start(w bolted.WriteTx) error {
 
 	cnt, err := numberOfWriteTransactionsVec.GetMetricWithLabelValues(dbname)
 	if err != nil {
-		return errors.Wrap(err, "while getting metric counter")
+		return fmt.Errorf("while getting metric counter: %w", err)
 	}
 
 	cnt.Add(1)
@@ -80,13 +81,13 @@ func (l metricsChangeListener) AfterTransaction(err error) error {
 
 		cnt, err := numberOfFailedTransactionsVec.GetMetricWithLabelValues(dbname)
 		if err != nil {
-			return errors.Wrap(err, "while getting metric counter")
+			return fmt.Errorf("while getting metric counter: %w", err)
 		}
 		cnt.Inc()
 	} else {
 		cnt, err := numberOfSuccessfulWriteTransactionsVec.GetMetricWithLabelValues(dbname)
 		if err != nil {
-			return errors.Wrap(err, "while getting metric counter")
+			return fmt.Errorf("while getting metric counter: %w", err)
 		}
 		cnt.Inc()
 	}

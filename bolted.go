@@ -1,10 +1,11 @@
 package bolted
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/draganm/bolted/dbpath"
-	"github.com/pkg/errors"
+
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -19,7 +20,7 @@ const rootBucketName = "root"
 func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 	db, err := bolt.Open(path, mode, &bolt.Options{})
 	if err != nil {
-		return nil, errors.Wrap(err, "while opening bolt db")
+		return nil, fmt.Errorf("while opening bolt db: %w", err)
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
@@ -34,7 +35,7 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "while creating root bucket")
+		return nil, fmt.Errorf("while creating root bucket: %w", err)
 	}
 
 	obs := newObserver()
@@ -48,13 +49,13 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 	for _, o := range options {
 		err = o(b)
 		if err != nil {
-			return nil, errors.Wrap(err, "while applying option")
+			return nil, fmt.Errorf("while applying option: %w", err)
 		}
 	}
 
 	err = b.changeListeners.Opened(b)
 	if err != nil {
-		return nil, errors.Wrap(err, "while handling Added by one of the change listeners")
+		return nil, fmt.Errorf("while handling Added by one of the change listeners: %w", err)
 	}
 
 	return b, nil

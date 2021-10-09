@@ -1,8 +1,10 @@
 package bolted
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/draganm/bolted/dbpath"
-	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -19,13 +21,13 @@ func IsNotFound(err error) bool {
 		return false
 	}
 
-	return errors.Cause(err) == ErrNotFound
+	return errors.Is(err, ErrNotFound)
 }
 
 func (w *writeTx) CreateMap(path dbpath.Path) {
 	err := w.createMap(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "CreateMap(%s)", path.String()))
+		panic(fmt.Errorf("CreateMap(%s): %w", path.String(), err))
 	}
 }
 
@@ -70,7 +72,7 @@ func (w *writeTx) createMap(path dbpath.Path) error {
 func (w *writeTx) Delete(path dbpath.Path) {
 	err := w.delete(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "Delete(%s)", path.String()))
+		panic(fmt.Errorf("Delete(%s): %w", path.String(), err))
 	}
 }
 
@@ -137,7 +139,7 @@ func (w *writeTx) delete(path dbpath.Path) error {
 func (w *writeTx) Put(path dbpath.Path, value []byte) {
 	err := w.put(path, value)
 	if err != nil {
-		panic(errors.Wrapf(err, "Put(%s)", path.String()))
+		panic(fmt.Errorf("Put(%s): %w", path.String(), err))
 	}
 }
 
@@ -181,7 +183,7 @@ func (w *writeTx) put(path dbpath.Path, value []byte) error {
 func (w *writeTx) Get(path dbpath.Path) []byte {
 	res, err := w.get(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "Get(%s)", path.String()))
+		panic(fmt.Errorf("Get(%s): %w", path.String(), err))
 	}
 	return res
 }
@@ -264,7 +266,7 @@ func (i *Iterator) Last() {
 func (w *writeTx) Iterator(path dbpath.Path) *Iterator {
 	it, err := w.iterator(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "Iterator(%s)", path.String()))
+		panic(fmt.Errorf("Iterator(%s): %w", path.String(), err))
 	}
 	return it
 }
@@ -298,7 +300,7 @@ func (w *writeTx) iterator(path dbpath.Path) (*Iterator, error) {
 func (w *writeTx) Exists(path dbpath.Path) bool {
 	ex, err := w.exists(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "Exists(%s)", path.String()))
+		panic(fmt.Errorf("Exists(%s): %w", path.String(), err))
 	}
 	return ex
 }
@@ -338,7 +340,7 @@ func (w *writeTx) exists(path dbpath.Path) (bool, error) {
 func (w *writeTx) IsMap(path dbpath.Path) bool {
 	ex, err := w.isMap(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "IsMap(%s)", path.String()))
+		panic(fmt.Errorf("IsMap(%s): %w", path.String(), err))
 	}
 	return ex
 }
@@ -378,7 +380,7 @@ func (w *writeTx) isMap(path dbpath.Path) (bool, error) {
 func (w *writeTx) Size(path dbpath.Path) uint64 {
 	sz, err := w.size(path)
 	if err != nil {
-		panic(errors.Wrapf(err, "Size(%s)", path.String()))
+		panic(fmt.Errorf("Size(%s): %w", path.String(), err))
 	}
 	return sz
 }
