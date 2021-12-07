@@ -107,3 +107,51 @@ var _ = steps.Then("the root should have {int} elements", func(w *world.World, e
 		return nil
 	})
 })
+
+var _ = steps.Then("I put {string} data under {string} in the root", func(w *world.World, content string, dataName string) error {
+	db := getDB(w)
+	return db.Write(func(tx bolted.WriteTx) error {
+		tx.Put(dbpath.ToPath(dataName), []byte(content))
+		return nil
+	})
+})
+
+var _ = steps.Then("the data {string} should exist", func(w *world.World, dataName string) error {
+	db := getDB(w)
+	return db.Read(func(tx bolted.ReadTx) error {
+		w.Assert.True(tx.Exists(dbpath.ToPath(dataName)))
+		return nil
+	})
+})
+
+var _ = steps.Then("the context of the data {string} should be {string}", func(w *world.World, dataName string, expectedContent string) error {
+	db := getDB(w)
+	return db.Read(func(tx bolted.ReadTx) error {
+		w.Assert.Equal(expectedContent, string(tx.Get(dbpath.ToPath(dataName))))
+		return nil
+	})
+})
+
+var _ = steps.Then("there is data with name {string} in the root", func(w *world.World, dataName string) error {
+	db := getDB(w)
+	return db.Write(func(tx bolted.WriteTx) error {
+		tx.Put(dbpath.ToPath(dataName), []byte("this is a test"))
+		return nil
+	})
+})
+
+var _ = steps.Then("I delete data {string} from the root", func(w *world.World, dataName string) error {
+	db := getDB(w)
+	return db.Write(func(tx bolted.WriteTx) error {
+		tx.Delete(dbpath.ToPath(dataName))
+		return nil
+	})
+})
+
+var _ = steps.Then("the data {string} should not exist", func(w *world.World, dataName string) error {
+	db := getDB(w)
+	return db.Read(func(tx bolted.ReadTx) error {
+		w.Assert.False(tx.Exists(dbpath.ToPath(dataName)))
+		return nil
+	})
+})
