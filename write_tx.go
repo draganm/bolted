@@ -8,30 +8,89 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+type WriteTx interface {
+	CreateMap(path dbpath.Path) error
+	Delete(path dbpath.Path) error
+	Put(path dbpath.Path, value []byte) error
+	Rollback() error
+	ReadTx
+}
+
+type ReadTx interface {
+	Get(path dbpath.Path) ([]byte, error)
+	Iterator(path dbpath.Path) (*Iterator, error)
+	Exists(path dbpath.Path) (bool, error)
+	IsMap(path dbpath.Path) (bool, error)
+	Size(path dbpath.Path) (uint64, error)
+	Finish() error
+}
+
 type writeTx struct {
 	btx             *bolt.Tx
 	changeListeners CompositeChangeListener
 	readOnly        bool
+	rolledBack      bool
 }
 
-var ErrNotFound = errors.New("not found")
-
-func IsNotFound(err error) bool {
-	if err == nil {
-		return false
+func (w *writeTx) Finish() (err error) {
+	if w.readOnly {
+		w.btx.Rollback()
+		return nil
 	}
 
-	return errors.Is(err, ErrNotFound)
-}
+	if w.rolledBack {
+		return nil
+	}
 
-func (w *writeTx) CreateMap(path dbpath.Path) {
-	err := w.createMap(path)
+	err = w.changeListeners.BeforeCommit(w)
 	if err != nil {
-		panic(fmt.Errorf("CreateMap(%s): %w", path.String(), err))
+		err2 := w.Rollback()
+		if err2 != nil {
+			return err2
+		}
+		return fmt.Errorf("before commit change listener: %w", err)
 	}
+
+	err = w.btx.Commit()
+
+	if err != nil {
+		return fmt.Errorf("while committing transaction: %w", err)
+	}
+
+	err = w.changeListeners.AfterTransaction(nil)
+	if err != nil {
+		return fmt.Errorf("after transaction change listener: %w", err)
+	}
+
+	return nil
 }
 
-func (w *writeTx) createMap(path dbpath.Path) error {
+func (w *writeTx) Rollback() (err error) {
+	if w.readOnly {
+		return nil
+	}
+
+	err = w.btx.Rollback()
+	if err != nil {
+		return fmt.Errorf("while rolling back transaction: %w", err)
+	}
+
+	err = w.changeListeners.AfterTransaction(errors.New("tx rolled back"))
+
+	if err != nil {
+		return fmt.Errorf("after transaction change listener: %w", err)
+	}
+
+	return nil
+}
+
+func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
+
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("CreateMap(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		return errors.New("root map already exists")
@@ -52,7 +111,7 @@ func (w *writeTx) createMap(path dbpath.Path) error {
 
 	last := path[len(path)-1]
 
-	_, err := bucket.CreateBucket([]byte(last))
+	_, err = bucket.CreateBucket([]byte(last))
 
 	if err != nil {
 		return err
@@ -69,14 +128,13 @@ func (w *writeTx) createMap(path dbpath.Path) error {
 
 }
 
-func (w *writeTx) Delete(path dbpath.Path) {
-	err := w.delete(path)
-	if err != nil {
-		panic(fmt.Errorf("Delete(%s): %w", path.String(), err))
-	}
-}
+func (w *writeTx) Delete(path dbpath.Path) (err error) {
 
-func (w *writeTx) delete(path dbpath.Path) error {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Delete(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		return errors.New("root cannot be deleted")
@@ -119,7 +177,7 @@ func (w *writeTx) delete(path dbpath.Path) error {
 		return ErrNotFound
 	}
 
-	err := bucket.DeleteBucket(last)
+	err = bucket.DeleteBucket(last)
 
 	if err != nil {
 		return err
@@ -136,14 +194,13 @@ func (w *writeTx) delete(path dbpath.Path) error {
 
 }
 
-func (w *writeTx) Put(path dbpath.Path, value []byte) {
-	err := w.put(path, value)
-	if err != nil {
-		panic(fmt.Errorf("Put(%s): %w", path.String(), err))
-	}
-}
+func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 
-func (w *writeTx) put(path dbpath.Path, value []byte) error {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Put(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		return errors.New("root cannot be deleted")
@@ -164,7 +221,7 @@ func (w *writeTx) put(path dbpath.Path, value []byte) error {
 
 	last := path[len(path)-1]
 
-	err := bucket.Put([]byte(last), value)
+	err = bucket.Put([]byte(last), value)
 	if err != nil {
 		return err
 	}
@@ -180,15 +237,13 @@ func (w *writeTx) put(path dbpath.Path, value []byte) error {
 
 }
 
-func (w *writeTx) Get(path dbpath.Path) []byte {
-	res, err := w.get(path)
-	if err != nil {
-		panic(fmt.Errorf("Get(%s): %w", path.String(), err))
-	}
-	return res
-}
+func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 
-func (w *writeTx) get(path dbpath.Path) ([]byte, error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Get(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		return nil, errors.New("cannot get value of root")
@@ -209,7 +264,7 @@ func (w *writeTx) get(path dbpath.Path) ([]byte, error) {
 
 	last := path[len(path)-1]
 
-	v := bucket.Get([]byte(last))
+	v = bucket.Get([]byte(last))
 
 	if v == nil {
 		return nil, errors.New("value not found")
@@ -219,59 +274,12 @@ func (w *writeTx) get(path dbpath.Path) ([]byte, error) {
 
 }
 
-type Iterator struct {
-	c     *bolt.Cursor
-	Key   string
-	Value []byte
-	Done  bool
-}
-
-func (i *Iterator) Next() {
-	var k, v []byte
-	k, v = i.c.Next()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
-}
-
-func (i *Iterator) Prev() {
-	var k, v []byte
-	k, v = i.c.Prev()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
-}
-
-func (i *Iterator) Seek(key string) {
-	k, v := i.c.Seek([]byte(key))
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
-}
-
-func (i *Iterator) First() {
-	k, v := i.c.First()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
-}
-
-func (i *Iterator) Last() {
-	k, v := i.c.Last()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
-}
-
-func (w *writeTx) Iterator(path dbpath.Path) *Iterator {
-	it, err := w.iterator(path)
-	if err != nil {
-		panic(fmt.Errorf("Iterator(%s): %w", path.String(), err))
-	}
-	return it
-}
-
-func (w *writeTx) iterator(path dbpath.Path) (*Iterator, error) {
+func (w *writeTx) Iterator(path dbpath.Path) (it *Iterator, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Iterator(%s): %w", path.String(), err)
+		}
+	}()
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
 
@@ -297,15 +305,13 @@ func (w *writeTx) iterator(path dbpath.Path) (*Iterator, error) {
 	}, nil
 }
 
-func (w *writeTx) Exists(path dbpath.Path) bool {
-	ex, err := w.exists(path)
-	if err != nil {
-		panic(fmt.Errorf("Exists(%s): %w", path.String(), err))
-	}
-	return ex
-}
+func (w *writeTx) Exists(path dbpath.Path) (ex bool, err error) {
 
-func (w *writeTx) exists(path dbpath.Path) (bool, error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Exists(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		// root always exists
@@ -337,15 +343,13 @@ func (w *writeTx) exists(path dbpath.Path) (bool, error) {
 
 }
 
-func (w *writeTx) IsMap(path dbpath.Path) bool {
-	ex, err := w.isMap(path)
-	if err != nil {
-		panic(fmt.Errorf("IsMap(%s): %w", path.String(), err))
-	}
-	return ex
-}
+func (w *writeTx) IsMap(path dbpath.Path) (ism bool, err error) {
 
-func (w *writeTx) isMap(path dbpath.Path) (bool, error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("IsMap(%s): %w", path.String(), err)
+		}
+	}()
 
 	if len(path) == 0 {
 		// root is always a map
@@ -377,15 +381,13 @@ func (w *writeTx) isMap(path dbpath.Path) (bool, error) {
 
 }
 
-func (w *writeTx) Size(path dbpath.Path) uint64 {
-	sz, err := w.size(path)
-	if err != nil {
-		panic(fmt.Errorf("Size(%s): %w", path.String(), err))
-	}
-	return sz
-}
+func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
 
-func (w *writeTx) size(path dbpath.Path) (uint64, error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("Size(%s): %w", path.String(), err)
+		}
+	}()
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
 

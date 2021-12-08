@@ -70,86 +70,107 @@ func (b *Bolted) Close() error {
 	return b.changeListeners.Closed()
 }
 
-type Write interface {
-	CreateMap(path dbpath.Path)
-	Delete(path dbpath.Path)
-	Put(path dbpath.Path, value []byte)
-	Read
-}
-
-type Read interface {
-	Get(path dbpath.Path) []byte
-	Iterator(path dbpath.Path) *Iterator
-	Exists(path dbpath.Path) bool
-	IsMap(path dbpath.Path) bool
-	Size(path dbpath.Path) uint64
-}
-
-func (b *Bolted) Write(f func(tx Write) error) error {
-	err := b.db.Update(func(btx *bolt.Tx) (err error) {
-		defer func() {
-			e := recover()
-			if e == nil {
-				return
-			}
-			var isError bool
-			err, isError = e.(error)
-			if !isError {
-				panic(e)
-			}
-		}()
-
-		wtx := &writeTx{
-			btx:             btx,
-			changeListeners: b.changeListeners,
-		}
-
-		err = b.changeListeners.Start(wtx)
-		if err != nil {
-			return err
-		}
-
-		err = f(wtx)
-		if err != nil {
-			return err
-		}
-
-		err = b.changeListeners.BeforeCommit(wtx)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	err2 := b.changeListeners.AfterTransaction(err)
-	if err2 != nil {
-		return err2
+func (b *Bolted) BeginWrite() (WriteTx, error) {
+	btx, err := b.db.Begin(true)
+	if err != nil {
+		return nil, fmt.Errorf("while starting transaction: %w", err)
 	}
 
-	return err
+	wtx := &writeTx{
+		btx:             btx,
+		changeListeners: b.changeListeners,
+		readOnly:        false,
+	}
+
+	err = b.changeListeners.Start(wtx)
+	if err != nil {
+		err2 := wtx.Rollback()
+		if err2 != nil {
+			return nil, err2
+		}
+		return nil, fmt.Errorf("change listener start: %w", err)
+	}
+
+	return wtx, nil
+
+}
+
+func (b *Bolted) beginRead() (*writeTx, error) {
+	btx, err := b.db.Begin(false)
+	if err != nil {
+		return nil, fmt.Errorf("while starting transaction: %w", err)
+	}
+
+	wtx := &writeTx{
+		btx:             btx,
+		changeListeners: b.changeListeners,
+		readOnly:        true,
+	}
+	return wtx, nil
+}
+
+func (b *Bolted) BeginRead() (ReadTx, error) {
+	return b.beginRead()
+}
+
+func (b *Bolted) Write(f func(tx Write) error) (err error) {
+
+	wtx, err := b.BeginWrite()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		e := recover()
+		if e == nil {
+			return
+		}
+		var isError bool
+		err, isError = e.(error)
+		if !isError {
+			panic(e)
+		}
+	}()
+
+	defer func() {
+		err = wtx.Finish()
+	}()
+
+	err = f(&write{wtx: wtx})
+	if err != nil {
+		err2 := wtx.Rollback()
+		if err2 != nil {
+			return err2
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (b *Bolted) Read(f func(tx Read) error) error {
-	return b.db.View(func(btx *bolt.Tx) (err error) {
+	wtx, err := b.beginRead()
+	if err != nil {
+		return err
+	}
 
-		defer func() {
-			e := recover()
-			if e == nil {
-				return
-			}
-			var isError bool
-			err, isError = e.(error)
-			if !isError {
-				panic(e)
-			}
-		}()
-
-		wtx := &writeTx{
-			btx: btx,
+	defer func() {
+		e := recover()
+		if e == nil {
+			return
 		}
-		return f(wtx)
-	})
+		var isError bool
+		err, isError = e.(error)
+		if !isError {
+			panic(e)
+		}
+	}()
+	defer func() {
+		err = wtx.Finish()
+	}()
+
+	return f(&write{wtx: wtx})
+
 }
 
 func (b *Bolted) Observe(path dbpath.Matcher) (<-chan ObservedChanges, func()) {

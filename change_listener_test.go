@@ -25,23 +25,23 @@ func (c *testChangeListener) Opened(b *bolted.Bolted) error {
 	return nil
 }
 
-func (c *testChangeListener) Start(w bolted.Write) error {
+func (c *testChangeListener) Start(w bolted.WriteTx) error {
 	c.startCalled = true
 	return nil
 }
-func (c *testChangeListener) Delete(w bolted.Write, path dbpath.Path) error {
+func (c *testChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
 	c.deleteCalled = true
 	return nil
 }
-func (c *testChangeListener) CreateMap(w bolted.Write, path dbpath.Path) error {
+func (c *testChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
 	c.createMapCalled = true
 	return nil
 }
-func (c *testChangeListener) Put(w bolted.Write, path dbpath.Path, newValue []byte) error {
+func (c *testChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
 	c.putCalled = true
 	return nil
 }
-func (c *testChangeListener) BeforeCommit(w bolted.Write) error {
+func (c *testChangeListener) BeforeCommit(w bolted.WriteTx) error {
 	c.beforeCommitCalled = true
 	return nil
 }
