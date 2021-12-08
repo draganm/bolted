@@ -54,7 +54,7 @@ var _ = steps.Then("I create a map {string}", func(w *world.World, mapName strin
 
 var _ = steps.Then("the map {string} should exist", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.True(tx.Exists(dbpath.ToPath(mapName)))
 		return nil
 	})
@@ -62,7 +62,7 @@ var _ = steps.Then("the map {string} should exist", func(w *world.World, mapName
 
 var _ = steps.Then("the map {string} should be empty", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.Equal(uint64(0), tx.Size(dbpath.ToPath(mapName)))
 		return nil
 	})
@@ -94,7 +94,7 @@ var _ = steps.Then("the map {string} should not exist", func(w *world.World, map
 
 var _ = steps.Then("the root should have {int} element", func(w *world.World, expected int) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
 		return nil
 	})
@@ -102,7 +102,7 @@ var _ = steps.Then("the root should have {int} element", func(w *world.World, ex
 
 var _ = steps.Then("the root should have {int} elements", func(w *world.World, expected int) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
 		return nil
 	})
@@ -118,7 +118,7 @@ var _ = steps.Then("I put {string} data under {string} in the root", func(w *wor
 
 var _ = steps.Then("the data {string} should exist", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.True(tx.Exists(dbpath.ToPath(dataName)))
 		return nil
 	})
@@ -126,7 +126,7 @@ var _ = steps.Then("the data {string} should exist", func(w *world.World, dataNa
 
 var _ = steps.Then("the context of the data {string} should be {string}", func(w *world.World, dataName string, expectedContent string) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.Equal(expectedContent, string(tx.Get(dbpath.ToPath(dataName))))
 		return nil
 	})
@@ -150,7 +150,7 @@ var _ = steps.Then("I delete data {string} from the root", func(w *world.World, 
 
 var _ = steps.Then("the data {string} should not exist", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return db.Read(func(tx bolted.ReadTx) error {
+	return db.Read(func(tx bolted.Read) error {
 		w.Assert.False(tx.Exists(dbpath.ToPath(dataName)))
 		return nil
 	})
@@ -175,7 +175,7 @@ var _ = steps.Then("there are {int} maps and {int} data entries in the root", fu
 var _ = steps.Then("I iterate over all entries", func(w *world.World) {
 	db := getDB(w)
 	result := [][2]string{}
-	err := db.Read(func(tx bolted.ReadTx) error {
+	err := db.Read(func(tx bolted.Read) error {
 		for it := tx.Iterator(dbpath.NilPath); !it.Done; it.Next() {
 			result = append(result, [2]string{it.Key, string(it.Value)})
 		}

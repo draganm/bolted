@@ -74,10 +74,10 @@ type Write interface {
 	CreateMap(path dbpath.Path)
 	Delete(path dbpath.Path)
 	Put(path dbpath.Path, value []byte)
-	ReadTx
+	Read
 }
 
-type ReadTx interface {
+type Read interface {
 	Get(path dbpath.Path) []byte
 	Iterator(path dbpath.Path) *Iterator
 	Exists(path dbpath.Path) bool
@@ -130,7 +130,7 @@ func (b *Bolted) Write(f func(tx Write) error) error {
 	return err
 }
 
-func (b *Bolted) Read(f func(tx ReadTx) error) error {
+func (b *Bolted) Read(f func(tx Read) error) error {
 	return b.db.View(func(btx *bolt.Tx) (err error) {
 
 		defer func() {

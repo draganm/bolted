@@ -86,7 +86,7 @@ func TestCreateMap(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -200,7 +200,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			val = tx.Get(dbpath.ToPath("test"))
 			return nil
 		})
@@ -224,7 +224,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			val = tx.Get(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -233,7 +233,7 @@ func TestPutAndGet(t *testing.T) {
 
 		require.Equal(t, []byte{1, 2, 3}, val)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -286,7 +286,7 @@ func TestIterator(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.False(t, it.Done)
 
@@ -313,7 +313,7 @@ func TestIterator(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.Done)
@@ -361,7 +361,7 @@ func TestIterator(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.Done)
