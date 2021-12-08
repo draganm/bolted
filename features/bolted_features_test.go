@@ -155,3 +155,50 @@ var _ = steps.Then("the data {string} should not exist", func(w *world.World, da
 		return nil
 	})
 })
+
+var _ = steps.Then("there are {int} maps and {int} data entries in the root", func(w *world.World, countMaps int, countData int) error {
+	db := getDB(w)
+	return db.Write(func(tx bolted.WriteTx) error {
+		cnt := 0
+		for i := 0; i < countMaps; i++ {
+			tx.CreateMap(dbpath.ToPath(fmt.Sprintf("%02d", cnt)))
+			cnt++
+		}
+		for i := 0; i < countData; i++ {
+			tx.Put(dbpath.ToPath(fmt.Sprintf("%02d", cnt)), []byte(fmt.Sprintf("%d", i)))
+			cnt++
+		}
+		return nil
+	})
+})
+
+var _ = steps.Then("I iterate over all entries", func(w *world.World) {
+	db := getDB(w)
+	result := [][2]string{}
+	err := db.Read(func(tx bolted.ReadTx) error {
+		for it := tx.Iterator(dbpath.NilPath); !it.Done; it.Next() {
+			result = append(result, [2]string{it.Key, string(it.Value)})
+		}
+		return nil
+	})
+
+	w.Assert.NoError(err)
+
+	w.Put("result", result)
+})
+
+var _ = steps.Then("I should retrieve entries in order", func(w *world.World) {
+	w.Require.Equal([][2]string{
+		{"00", ""},
+		{"01", ""},
+		{"02", ""},
+		{"03", ""},
+		{"04", ""},
+		{"05", "0"},
+		{"06", "1"},
+		{"07", "2"},
+		{"08", "3"},
+		{"09", "4"},
+	},
+		w.Attributes["result"])
+})
