@@ -60,7 +60,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			return nil
 		})
 
@@ -85,7 +85,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			return nil
 		})
 
@@ -110,7 +110,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			return errors.New("nope!")
 		})
 

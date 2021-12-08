@@ -187,7 +187,7 @@ func (w *observer) Opened(b *Bolted) error {
 	return nil
 }
 
-func (w *observer) Start(c WriteTx) error {
+func (w *observer) Start(c Write) error {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.reset()
@@ -204,22 +204,22 @@ func (w *observer) updateObservers(path dbpath.Path, t ChangeType) {
 	w.mu.Unlock()
 }
 
-func (w *observer) Delete(tx WriteTx, path dbpath.Path) error {
+func (w *observer) Delete(tx Write, path dbpath.Path) error {
 	w.updateObservers(path, ChangeTypeDeleted)
 	return nil
 }
 
-func (w *observer) CreateMap(tx WriteTx, path dbpath.Path) error {
+func (w *observer) CreateMap(tx Write, path dbpath.Path) error {
 	w.updateObservers(path, ChangeTypeMapCreated)
 	return nil
 }
 
-func (w *observer) Put(tx WriteTx, path dbpath.Path, newValue []byte) error {
+func (w *observer) Put(tx Write, path dbpath.Path, newValue []byte) error {
 	w.updateObservers(path, ChangeTypeValueSet)
 	return nil
 }
 
-func (w *observer) BeforeCommit(tx WriteTx) error {
+func (w *observer) BeforeCommit(tx Write) error {
 	return nil
 }
 

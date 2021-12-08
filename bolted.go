@@ -70,7 +70,7 @@ func (b *Bolted) Close() error {
 	return b.changeListeners.Closed()
 }
 
-type WriteTx interface {
+type Write interface {
 	CreateMap(path dbpath.Path)
 	Delete(path dbpath.Path)
 	Put(path dbpath.Path, value []byte)
@@ -85,7 +85,7 @@ type ReadTx interface {
 	Size(path dbpath.Path) uint64
 }
 
-func (b *Bolted) Write(f func(tx WriteTx) error) error {
+func (b *Bolted) Write(f func(tx Write) error) error {
 	err := b.db.Update(func(btx *bolt.Tx) (err error) {
 		defer func() {
 			e := recover()

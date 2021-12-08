@@ -45,7 +45,7 @@ func TestCreateMap(t *testing.T) {
 	t.Run("create map", func(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -56,13 +56,13 @@ func TestCreateMap(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -74,13 +74,13 @@ func TestCreateMap(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -107,7 +107,7 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -118,13 +118,13 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -135,14 +135,14 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -153,14 +153,14 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.Delete(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -171,13 +171,13 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = db.Write(func(tx bolted.Write) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -192,7 +192,7 @@ func TestPutAndGet(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
@@ -215,7 +215,7 @@ func TestPutAndGet(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.Put(dbpath.ToPath("test", "foo"), []byte{1, 2, 3})
 			return nil
@@ -267,7 +267,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.True(t, it.Done)
 			return nil
@@ -280,7 +280,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
@@ -306,7 +306,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			return nil
@@ -352,7 +352,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx bolted.Write) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			tx.CreateMap(dbpath.ToPath("test3"))

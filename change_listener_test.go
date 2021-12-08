@@ -25,23 +25,23 @@ func (c *testChangeListener) Opened(b *bolted.Bolted) error {
 	return nil
 }
 
-func (c *testChangeListener) Start(w bolted.WriteTx) error {
+func (c *testChangeListener) Start(w bolted.Write) error {
 	c.startCalled = true
 	return nil
 }
-func (c *testChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
+func (c *testChangeListener) Delete(w bolted.Write, path dbpath.Path) error {
 	c.deleteCalled = true
 	return nil
 }
-func (c *testChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
+func (c *testChangeListener) CreateMap(w bolted.Write, path dbpath.Path) error {
 	c.createMapCalled = true
 	return nil
 }
-func (c *testChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
+func (c *testChangeListener) Put(w bolted.Write, path dbpath.Path, newValue []byte) error {
 	c.putCalled = true
 	return nil
 }
-func (c *testChangeListener) BeforeCommit(w bolted.WriteTx) error {
+func (c *testChangeListener) BeforeCommit(w bolted.Write) error {
 	c.beforeCommitCalled = true
 	return nil
 }
@@ -58,7 +58,7 @@ func TestChangeListener(t *testing.T) {
 	cl := &testChangeListener{}
 	bd, cleanup := openEmptyDatabase(t, bolted.WithChangeListeners(cl))
 
-	err := bd.Write(func(tx bolted.WriteTx) error {
+	err := bd.Write(func(tx bolted.Write) error {
 		tx.CreateMap(dbpath.ToPath("test"))
 		tx.Put(dbpath.ToPath("test", "abc"), []byte{1, 2, 3})
 		tx.Delete(dbpath.ToPath("test"))

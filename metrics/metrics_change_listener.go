@@ -47,7 +47,7 @@ func (l metricsChangeListener) Opened(b *bolted.Bolted) error {
 	return nil
 }
 
-func (l metricsChangeListener) Start(w bolted.WriteTx) error {
+func (l metricsChangeListener) Start(w bolted.Write) error {
 	dbname := string(l)
 
 	cnt, err := numberOfWriteTransactionsVec.GetMetricWithLabelValues(dbname)
@@ -59,19 +59,19 @@ func (l metricsChangeListener) Start(w bolted.WriteTx) error {
 	return nil
 }
 
-func (l metricsChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
+func (l metricsChangeListener) Delete(w bolted.Write, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
+func (l metricsChangeListener) CreateMap(w bolted.Write, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
+func (l metricsChangeListener) Put(w bolted.Write, path dbpath.Path, newValue []byte) error {
 	return nil
 }
 
-func (l metricsChangeListener) BeforeCommit(w bolted.WriteTx) error {
+func (l metricsChangeListener) BeforeCommit(w bolted.Write) error {
 	return nil
 }
 
