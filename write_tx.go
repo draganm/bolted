@@ -18,7 +18,7 @@ type WriteTx interface {
 
 type ReadTx interface {
 	Get(path dbpath.Path) ([]byte, error)
-	Iterator(path dbpath.Path) (*Iterator, error)
+	Iterator(path dbpath.Path) (Iterator, error)
 	Exists(path dbpath.Path) (bool, error)
 	IsMap(path dbpath.Path) (bool, error)
 	Size(path dbpath.Path) (uint64, error)
@@ -274,7 +274,7 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it *Iterator, err error) {
+func (w *writeTx) Iterator(path dbpath.Path) (it Iterator, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("Iterator(%s): %w", path.String(), err)
@@ -297,11 +297,11 @@ func (w *writeTx) Iterator(path dbpath.Path) (it *Iterator, err error) {
 	c := bucket.Cursor()
 	k, v := c.First()
 
-	return &Iterator{
+	return &iterator{
 		c:     c,
-		Key:   string(k),
-		Value: v,
-		Done:  k == nil,
+		key:   string(k),
+		value: v,
+		done:  k == nil,
 	}, nil
 }
 

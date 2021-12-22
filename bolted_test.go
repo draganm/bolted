@@ -269,7 +269,7 @@ func TestIterator(t *testing.T) {
 
 		err := db.Write(func(tx bolted.Write) error {
 			it := tx.Iterator(dbpath.NilPath)
-			require.True(t, it.Done)
+			require.True(t, it.IsDone())
 			return nil
 		})
 		require.NoError(t, err)
@@ -288,13 +288,13 @@ func TestIterator(t *testing.T) {
 
 		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
-			require.False(t, it.Done)
+			require.False(t, it.IsDone())
 
-			require.Equal(t, "test", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
+			require.Equal(t, "test", it.GetKey())
+			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
-			require.True(t, it.Done)
+			require.True(t, it.IsDone())
 
 			return nil
 		})
@@ -316,31 +316,31 @@ func TestIterator(t *testing.T) {
 		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
 
-			require.False(t, it.Done)
-			require.Equal(t, "test1", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test1", it.GetKey())
+			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
 
-			require.False(t, it.Done)
-			require.Equal(t, "test2", it.Key)
-			require.Equal(t, []byte{2, 3, 4}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test2", it.GetKey())
+			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Prev()
 
-			require.False(t, it.Done)
-			require.Equal(t, "test1", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test1", it.GetKey())
+			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Last()
 
-			require.False(t, it.Done)
-			require.Equal(t, "test2", it.Key)
-			require.Equal(t, []byte{2, 3, 4}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test2", it.GetKey())
+			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Next()
 
-			require.True(t, it.Done)
+			require.True(t, it.IsDone())
 
 			return nil
 		})
@@ -364,25 +364,25 @@ func TestIterator(t *testing.T) {
 		err = db.Read(func(tx bolted.Read) error {
 			it := tx.Iterator(dbpath.NilPath)
 
-			require.False(t, it.Done)
-			require.Equal(t, "test1", it.Key)
-			require.Equal(t, []byte{1, 2, 3}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test1", it.GetKey())
+			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
 
-			require.False(t, it.Done)
-			require.Equal(t, "test2", it.Key)
-			require.Equal(t, []byte{2, 3, 4}, it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test2", it.GetKey())
+			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Next()
 
-			require.False(t, it.Done)
-			require.Equal(t, "test3", it.Key)
-			require.Equal(t, []byte(nil), it.Value)
+			require.False(t, it.IsDone())
+			require.Equal(t, "test3", it.GetKey())
+			require.Equal(t, []byte(nil), it.GetValue())
 
 			it.Next()
 
-			require.True(t, it.Done)
+			require.True(t, it.IsDone())
 
 			return nil
 		})

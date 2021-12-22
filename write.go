@@ -16,10 +16,21 @@ type Write interface {
 
 type Read interface {
 	Get(path dbpath.Path) []byte
-	Iterator(path dbpath.Path) *Iterator
+	Iterator(path dbpath.Path) Iterator
 	Exists(path dbpath.Path) bool
 	IsMap(path dbpath.Path) bool
 	Size(path dbpath.Path) uint64
+}
+
+type Iterator interface {
+	GetKey() string
+	GetValue() []byte
+	IsDone() bool
+	Prev()
+	Next()
+	Seek(key string)
+	First()
+	Last()
 }
 
 type write struct {
@@ -66,51 +77,63 @@ func (w *write) Get(path dbpath.Path) []byte {
 	return res
 }
 
-type Iterator struct {
+type iterator struct {
 	c     *bolt.Cursor
-	Key   string
-	Value []byte
-	Done  bool
+	key   string
+	value []byte
+	done  bool
 }
 
-func (i *Iterator) Next() {
+func (i *iterator) GetKey() string {
+	return i.key
+}
+
+func (i *iterator) GetValue() []byte {
+	return i.value
+}
+
+func (i *iterator) IsDone() bool {
+	return i.done
+}
+
+func (i *iterator) Next() {
 	var k, v []byte
 	k, v = i.c.Next()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
+	i.key = string(k)
+	i.value = v
+	i.done = k == nil
 }
 
-func (i *Iterator) Prev() {
+func (i *iterator) Prev() {
 	var k, v []byte
 	k, v = i.c.Prev()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
+	i.key = string(k)
+	i.value = v
+	i.done = k == nil
 }
 
-func (i *Iterator) Seek(key string) {
+func (i *iterator) Seek(key string) {
 	k, v := i.c.Seek([]byte(key))
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
+	i.key = string(k)
+	i.value = v
+	i.done = k == nil
 }
 
-func (i *Iterator) First() {
+func (i *iterator) First() {
 	k, v := i.c.First()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
+	i.key = string(k)
+	i.value = v
+	i.done = k == nil
 }
 
-func (i *Iterator) Last() {
+func (i *iterator) Last() {
 	k, v := i.c.Last()
-	i.Key = string(k)
-	i.Value = v
-	i.Done = k == nil
+	i.key = string(k)
+	i.value = v
+	i.done = k == nil
 }
 
-func (w *write) Iterator(path dbpath.Path) *Iterator {
+func (w *write) Iterator(path dbpath.Path) Iterator {
 	it, err := w.wtx.Iterator(path)
 	if err != nil {
 		panic(err)
