@@ -1,12 +1,13 @@
-package bolted_test
+package embedded_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/database"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/embedded"
 )
 
 type testChangeListener struct {
@@ -20,28 +21,28 @@ type testChangeListener struct {
 	closedCalled           bool
 }
 
-func (c *testChangeListener) Opened(b *bolted.Bolted) error {
+func (c *testChangeListener) Opened(b *embedded.Bolted) error {
 	c.openedCalled = true
 	return nil
 }
 
-func (c *testChangeListener) Start(w bolted.WriteTx) error {
+func (c *testChangeListener) Start(w database.WriteTx) error {
 	c.startCalled = true
 	return nil
 }
-func (c *testChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
+func (c *testChangeListener) Delete(w database.WriteTx, path dbpath.Path) error {
 	c.deleteCalled = true
 	return nil
 }
-func (c *testChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
+func (c *testChangeListener) CreateMap(w database.WriteTx, path dbpath.Path) error {
 	c.createMapCalled = true
 	return nil
 }
-func (c *testChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
+func (c *testChangeListener) Put(w database.WriteTx, path dbpath.Path, newValue []byte) error {
 	c.putCalled = true
 	return nil
 }
-func (c *testChangeListener) BeforeCommit(w bolted.WriteTx) error {
+func (c *testChangeListener) BeforeCommit(w database.WriteTx) error {
 	c.beforeCommitCalled = true
 	return nil
 }
@@ -56,9 +57,9 @@ func (c *testChangeListener) Closed() error {
 
 func TestChangeListener(t *testing.T) {
 	cl := &testChangeListener{}
-	bd, cleanup := openEmptyDatabase(t, bolted.WithChangeListeners(cl))
+	db, cleanup := openEmptyDatabase(t, embedded.WithChangeListeners(cl))
 
-	err := bd.Write(func(tx bolted.Write) error {
+	err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 		tx.CreateMap(dbpath.ToPath("test"))
 		tx.Put(dbpath.ToPath("test", "abc"), []byte{1, 2, 3})
 		tx.Delete(dbpath.ToPath("test"))

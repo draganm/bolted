@@ -1,15 +1,18 @@
-package bolted
+package embedded
 
-import "github.com/draganm/bolted/dbpath"
+import (
+	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted/dbpath"
+)
 
 // ChangeListener will receive following callbacks during a write transaction:
 type ChangeListener interface {
 	Opened(b *Bolted) error
-	Start(w WriteTx) error
-	Delete(w WriteTx, path dbpath.Path) error
-	CreateMap(w WriteTx, path dbpath.Path) error
-	Put(w WriteTx, path dbpath.Path, newValue []byte) error
-	BeforeCommit(w WriteTx) error
+	Start(w database.WriteTx) error
+	Delete(w database.WriteTx, path dbpath.Path) error
+	CreateMap(w database.WriteTx, path dbpath.Path) error
+	Put(w database.WriteTx, path dbpath.Path, newValue []byte) error
+	BeforeCommit(w database.WriteTx) error
 	AfterTransaction(err error) error
 	Closed() error
 }
@@ -26,7 +29,7 @@ func (c CompositeChangeListener) Opened(b *Bolted) error {
 	return nil
 }
 
-func (c CompositeChangeListener) Start(w WriteTx) error {
+func (c CompositeChangeListener) Start(w database.WriteTx) error {
 	for _, cl := range c {
 		err := cl.Start(w)
 		if err != nil {
@@ -36,7 +39,7 @@ func (c CompositeChangeListener) Start(w WriteTx) error {
 	return nil
 }
 
-func (c CompositeChangeListener) Delete(w WriteTx, path dbpath.Path) error {
+func (c CompositeChangeListener) Delete(w database.WriteTx, path dbpath.Path) error {
 	for _, cl := range c {
 		err := cl.Delete(w, path)
 		if err != nil {
@@ -46,7 +49,7 @@ func (c CompositeChangeListener) Delete(w WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (c CompositeChangeListener) CreateMap(w WriteTx, path dbpath.Path) error {
+func (c CompositeChangeListener) CreateMap(w database.WriteTx, path dbpath.Path) error {
 	for _, cl := range c {
 		err := cl.CreateMap(w, path)
 		if err != nil {
@@ -56,7 +59,7 @@ func (c CompositeChangeListener) CreateMap(w WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (c CompositeChangeListener) Put(w WriteTx, path dbpath.Path, newValue []byte) error {
+func (c CompositeChangeListener) Put(w database.WriteTx, path dbpath.Path, newValue []byte) error {
 	for _, cl := range c {
 		err := cl.Put(w, path, newValue)
 		if err != nil {
@@ -66,7 +69,7 @@ func (c CompositeChangeListener) Put(w WriteTx, path dbpath.Path, newValue []byt
 	return nil
 }
 
-func (c CompositeChangeListener) BeforeCommit(w WriteTx) error {
+func (c CompositeChangeListener) BeforeCommit(w database.WriteTx) error {
 	for _, cl := range c {
 		err := cl.BeforeCommit(w)
 		if err != nil {

@@ -7,14 +7,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/bolted/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, func()) {
+func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (database.Bolted, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -22,7 +23,7 @@ func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, fun
 		require.NoError(t, err)
 	}
 
-	db, err := bolted.Open(filepath.Join(td, "db"), 0660, opts...)
+	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts...)
 
 	require.NoError(t, err)
 
@@ -56,11 +57,11 @@ func findMetricsWithName(t *testing.T, name string) dto.MetricFamily {
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, bolted.WithChangeListeners(metrics.NewChangeListener("main")))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			return nil
 		})
 
@@ -81,11 +82,11 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of successful transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, bolted.WithChangeListeners(metrics.NewChangeListener("main")))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			return nil
 		})
 
@@ -106,11 +107,11 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, bolted.WithChangeListeners(metrics.NewChangeListener("main")))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			return errors.New("nope!")
 		})
 

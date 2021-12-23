@@ -3,14 +3,15 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/database"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/embedded"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type metricsChangeListener string
 
-func NewChangeListener(dbName string) bolted.ChangeListener {
+func NewChangeListener(dbName string) embedded.ChangeListener {
 	return metricsChangeListener(dbName)
 }
 
@@ -43,11 +44,11 @@ func init() {
 	)
 }
 
-func (l metricsChangeListener) Opened(b *bolted.Bolted) error {
+func (l metricsChangeListener) Opened(b *embedded.Bolted) error {
 	return nil
 }
 
-func (l metricsChangeListener) Start(w bolted.WriteTx) error {
+func (l metricsChangeListener) Start(w database.WriteTx) error {
 	dbname := string(l)
 
 	cnt, err := numberOfWriteTransactionsVec.GetMetricWithLabelValues(dbname)
@@ -59,19 +60,19 @@ func (l metricsChangeListener) Start(w bolted.WriteTx) error {
 	return nil
 }
 
-func (l metricsChangeListener) Delete(w bolted.WriteTx, path dbpath.Path) error {
+func (l metricsChangeListener) Delete(w database.WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) CreateMap(w bolted.WriteTx, path dbpath.Path) error {
+func (l metricsChangeListener) CreateMap(w database.WriteTx, path dbpath.Path) error {
 	return nil
 }
 
-func (l metricsChangeListener) Put(w bolted.WriteTx, path dbpath.Path, newValue []byte) error {
+func (l metricsChangeListener) Put(w database.WriteTx, path dbpath.Path, newValue []byte) error {
 	return nil
 }
 
-func (l metricsChangeListener) BeforeCommit(w bolted.WriteTx) error {
+func (l metricsChangeListener) BeforeCommit(w database.WriteTx) error {
 	return nil
 }
 

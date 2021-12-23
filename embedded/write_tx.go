@@ -1,9 +1,10 @@
-package bolted
+package embedded
 
 import (
 	"errors"
 	"fmt"
 
+	"github.com/draganm/bolted/database"
 	"github.com/draganm/bolted/dbpath"
 	bolt "go.etcd.io/bbolt"
 )
@@ -274,7 +275,7 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it Iterator, err error) {
+func (w *writeTx) Iterator(path dbpath.Path) (it database.Iterator, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("Iterator(%s): %w", path.String(), err)

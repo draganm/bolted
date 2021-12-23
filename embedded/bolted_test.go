@@ -1,4 +1,4 @@
-package bolted_test
+package embedded_test
 
 import (
 	"io/ioutil"
@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/database"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/embedded"
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, func()) {
+func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (database.Bolted, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -19,7 +20,7 @@ func openEmptyDatabase(t *testing.T, opts ...bolted.Option) (*bolted.Bolted, fun
 		require.NoError(t, err)
 	}
 
-	db, err := bolted.Open(filepath.Join(td, "db"), 0660, opts...)
+	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts...)
 
 	require.NoError(t, err)
 
@@ -45,7 +46,7 @@ func TestCreateMap(t *testing.T) {
 	t.Run("create map", func(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -56,13 +57,13 @@ func TestCreateMap(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -74,19 +75,19 @@ func TestCreateMap(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -107,24 +108,24 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
-		require.True(t, bolted.IsNotFound(err))
+		require.True(t, embedded.IsNotFound(err))
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -135,14 +136,14 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -153,14 +154,14 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Delete(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -171,13 +172,13 @@ func TestDelete(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.Write) error {
+		err = database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -192,7 +193,7 @@ func TestPutAndGet(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
@@ -200,7 +201,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			val = tx.Get(dbpath.ToPath("test"))
 			return nil
 		})
@@ -215,7 +216,7 @@ func TestPutAndGet(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.Put(dbpath.ToPath("test", "foo"), []byte{1, 2, 3})
 			return nil
@@ -224,7 +225,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			val = tx.Get(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -233,7 +234,7 @@ func TestPutAndGet(t *testing.T) {
 
 		require.Equal(t, []byte{1, 2, 3}, val)
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -267,7 +268,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.True(t, it.IsDone())
 			return nil
@@ -280,13 +281,13 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.False(t, it.IsDone())
 
@@ -306,14 +307,14 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
@@ -352,7 +353,7 @@ func TestIterator(t *testing.T) {
 		db, cleanup := openEmptyDatabase(t)
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.Write) error {
+		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			tx.CreateMap(dbpath.ToPath("test3"))
@@ -361,7 +362,7 @@ func TestIterator(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.Read) error {
+		err = database.SugaredRead(db, func(tx database.SugaredReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
