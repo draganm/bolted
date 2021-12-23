@@ -146,38 +146,60 @@ func (w *observer) updateObservers(path dbpath.Path, t database.ChangeType) {
 	w.mu.Unlock()
 }
 
-func (w *observer) Delete(tx database.WriteTx, path dbpath.Path) error {
-	w.updateObservers(path, database.ChangeTypeDeleted)
+type txObserver struct {
+	o *observer
+	database.WriteTx
+}
+
+func (o *observer) writeTxDecorator(tx database.WriteTx) database.WriteTx {
+	return &txObserver{
+		o:       o,
+		WriteTx: tx,
+	}
+}
+
+func (to *txObserver) Delete(path dbpath.Path) error {
+	err := to.WriteTx.Delete(path)
+	if err != nil {
+		return err
+	}
+
+	to.o.updateObservers(path, database.ChangeTypeDeleted)
 	return nil
 }
 
-func (w *observer) CreateMap(tx database.WriteTx, path dbpath.Path) error {
-	w.updateObservers(path, database.ChangeTypeMapCreated)
+func (to *txObserver) CreateMap(path dbpath.Path) error {
+	err := to.WriteTx.CreateMap(path)
+	if err != nil {
+		return err
+	}
+	to.o.updateObservers(path, database.ChangeTypeMapCreated)
 	return nil
 }
 
-func (w *observer) Put(tx database.WriteTx, path dbpath.Path, newValue []byte) error {
-	w.updateObservers(path, database.ChangeTypeValueSet)
+func (to *txObserver) Put(path dbpath.Path, data []byte) error {
+	err := to.WriteTx.Put(path, data)
+	if err != nil {
+		return err
+	}
+	to.o.updateObservers(path, database.ChangeTypeValueSet)
 	return nil
 }
 
-func (w *observer) BeforeCommit(tx database.WriteTx) error {
-	return nil
-}
+func (to *txObserver) Finish() error {
+	err := to.WriteTx.Finish()
+	if err != nil {
+		return err
+	}
 
-func (w *observer) AfterTransaction(err error) error {
-	w.mu.Lock()
+	to.o.mu.Lock()
 
 	if err == nil {
-		for _, o := range w.observers {
+		for _, o := range to.o.observers {
 			o.broadcast()
 		}
 	}
-	w.mu.Unlock()
-	return nil
-}
 
-// Closed TODO: add closing of the database semantics
-func (w *observer) Closed() error {
+	to.o.mu.Unlock()
 	return nil
 }

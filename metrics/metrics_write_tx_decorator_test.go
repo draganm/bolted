@@ -39,25 +39,38 @@ func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (database.Bolted, 
 
 }
 
-func findMetricsWithName(t *testing.T, name string) dto.MetricFamily {
+func stringOf(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func findMetricWithName(t *testing.T, name string) *dto.Metric {
 	metrics, err := prometheus.DefaultGatherer.Gather()
 	require.NoError(t, err)
 
 	for _, m := range metrics {
 		if *m.Name == "bolted_number_of_write_transactions_total" {
-			return *m
+			for _, met := range m.Metric {
+				for _, l := range met.GetLabel() {
+					if stringOf(l.Name) == "dbname" && stringOf(l.Value) == t.Name() {
+						return met
+					}
+				}
+			}
 		}
 	}
 
 	require.Failf(t, "metric with name %q not found", name)
 
-	return dto.MetricFamily{}
+	return nil
 }
 
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
 
 		defer cleanupDatabase()
 
@@ -67,12 +80,7 @@ func TestMetrics(t *testing.T) {
 
 		require.NoError(t, err)
 
-		metFamily := findMetricsWithName(t, "bolted_number_of_write_transactions_total")
-
-		mets := metFamily.Metric
-		require.Equal(t, 1, len(mets))
-
-		met := mets[0]
+		met := findMetricWithName(t, "bolted_number_of_write_transactions_total")
 
 		require.NotNil(t, met.Counter)
 
@@ -82,7 +90,8 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of successful transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
+
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
 
 		defer cleanupDatabase()
 
@@ -92,12 +101,7 @@ func TestMetrics(t *testing.T) {
 
 		require.NoError(t, err)
 
-		metFamily := findMetricsWithName(t, "bolted_number_of_write_transactions_successful")
-
-		mets := metFamily.Metric
-		require.Equal(t, 1, len(mets))
-
-		met := mets[0]
+		met := findMetricWithName(t, "bolted_number_of_write_transactions_successful")
 
 		require.NotNil(t, met.Counter)
 
@@ -107,7 +111,7 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithChangeListeners(metrics.NewChangeListener("main")))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
 
 		defer cleanupDatabase()
 
@@ -117,12 +121,7 @@ func TestMetrics(t *testing.T) {
 
 		require.NotNil(t, err)
 
-		metFamily := findMetricsWithName(t, "bolted_number_of_write_transactions_failed")
-
-		mets := metFamily.Metric
-		require.Equal(t, 1, len(mets))
-
-		met := mets[0]
+		met := findMetricWithName(t, "bolted_number_of_write_transactions_failed")
 
 		require.NotNil(t, met.Counter)
 

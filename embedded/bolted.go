@@ -11,9 +11,9 @@ import (
 )
 
 type Bolted struct {
-	db              *bolt.DB
-	changeListeners CompositeChangeListener
-	obs             *observer
+	db                *bolt.DB
+	obs               *observer
+	writeTxDecorators []WriteTxDecorator
 }
 
 const rootBucketName = "root"
@@ -42,9 +42,9 @@ func Open(path string, mode os.FileMode, options ...Option) (database.Bolted, er
 	obs := newObserver()
 
 	b := &Bolted{
-		db:              db,
-		changeListeners: CompositeChangeListener{obs},
-		obs:             obs,
+		db:                db,
+		obs:               obs,
+		writeTxDecorators: []WriteTxDecorator{obs.writeTxDecorator},
 	}
 
 	for _, o := range options {
@@ -52,11 +52,6 @@ func Open(path string, mode os.FileMode, options ...Option) (database.Bolted, er
 		if err != nil {
 			return nil, fmt.Errorf("while applying option: %w", err)
 		}
-	}
-
-	err = b.changeListeners.Opened(b)
-	if err != nil {
-		return nil, fmt.Errorf("while handling Added by one of the change listeners: %w", err)
 	}
 
 	return b, nil
@@ -68,7 +63,7 @@ func (b *Bolted) Close() error {
 	if err != nil {
 		return err
 	}
-	return b.changeListeners.Closed()
+	return nil
 }
 
 func (b *Bolted) BeginWrite() (database.WriteTx, error) {
@@ -78,21 +73,17 @@ func (b *Bolted) BeginWrite() (database.WriteTx, error) {
 	}
 
 	wtx := &writeTx{
-		btx:             btx,
-		changeListeners: b.changeListeners,
-		readOnly:        false,
+		btx:      btx,
+		readOnly: false,
 	}
 
-	err = b.changeListeners.Start(wtx)
-	if err != nil {
-		err2 := wtx.Rollback()
-		if err2 != nil {
-			return nil, err2
-		}
-		return nil, fmt.Errorf("change listener start: %w", err)
+	var realWriteTx database.WriteTx = wtx
+
+	for _, d := range b.writeTxDecorators {
+		realWriteTx = d(realWriteTx)
 	}
 
-	return wtx, nil
+	return realWriteTx, nil
 
 }
 
@@ -103,9 +94,8 @@ func (b *Bolted) beginRead() (*writeTx, error) {
 	}
 
 	wtx := &writeTx{
-		btx:             btx,
-		changeListeners: b.changeListeners,
-		readOnly:        true,
+		btx:      btx,
+		readOnly: true,
 	}
 	return wtx, nil
 }

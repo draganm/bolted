@@ -27,10 +27,9 @@ type ReadTx interface {
 }
 
 type writeTx struct {
-	btx             *bolt.Tx
-	changeListeners CompositeChangeListener
-	readOnly        bool
-	rolledBack      bool
+	btx        *bolt.Tx
+	readOnly   bool
+	rolledBack bool
 }
 
 func (w *writeTx) Finish() (err error) {
@@ -43,24 +42,10 @@ func (w *writeTx) Finish() (err error) {
 		return nil
 	}
 
-	err = w.changeListeners.BeforeCommit(w)
-	if err != nil {
-		err2 := w.Rollback()
-		if err2 != nil {
-			return err2
-		}
-		return fmt.Errorf("before commit change listener: %w", err)
-	}
-
 	err = w.btx.Commit()
 
 	if err != nil {
 		return fmt.Errorf("while committing transaction: %w", err)
-	}
-
-	err = w.changeListeners.AfterTransaction(nil)
-	if err != nil {
-		return fmt.Errorf("after transaction change listener: %w", err)
 	}
 
 	return nil
@@ -74,12 +59,6 @@ func (w *writeTx) Rollback() (err error) {
 	err = w.btx.Rollback()
 	if err != nil {
 		return fmt.Errorf("while rolling back transaction: %w", err)
-	}
-
-	err = w.changeListeners.AfterTransaction(errors.New("tx rolled back"))
-
-	if err != nil {
-		return fmt.Errorf("after transaction change listener: %w", err)
 	}
 
 	return nil
@@ -116,13 +95,6 @@ func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 
 	if err != nil {
 		return err
-	}
-
-	if !w.readOnly {
-		err = w.changeListeners.CreateMap(w, path)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -163,13 +135,6 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 			return err
 		}
 
-		if !w.readOnly {
-			err = w.changeListeners.Delete(w, path)
-			if err != nil {
-				return err
-			}
-
-		}
 		return nil
 	}
 
@@ -182,13 +147,6 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 
 	if err != nil {
 		return err
-	}
-
-	if !w.readOnly {
-		err = w.changeListeners.Delete(w, path)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -225,13 +183,6 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 	err = bucket.Put([]byte(last), value)
 	if err != nil {
 		return err
-	}
-
-	if !w.readOnly {
-		err = w.changeListeners.Put(w, path, value)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
