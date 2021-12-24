@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/senfgurke/step"
@@ -41,13 +41,13 @@ var _ = steps.Then("the database is open", func(w *world.World) error {
 	return nil
 })
 
-func getDB(w *world.World) database.Bolted {
-	return w.Attributes["db"].(database.Bolted)
+func getDB(w *world.World) bolted.Database {
+	return w.Attributes["db"].(bolted.Database)
 }
 
 var _ = steps.Then("I create a map {string}", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.CreateMap(dbpath.ToPath(mapName))
 		return nil
 	})
@@ -55,7 +55,7 @@ var _ = steps.Then("I create a map {string}", func(w *world.World, mapName strin
 
 var _ = steps.Then("the map {string} should exist", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.True(tx.Exists(dbpath.ToPath(mapName)))
 		return nil
 	})
@@ -63,7 +63,7 @@ var _ = steps.Then("the map {string} should exist", func(w *world.World, mapName
 
 var _ = steps.Then("the map {string} should be empty", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.Equal(uint64(0), tx.Size(dbpath.ToPath(mapName)))
 		return nil
 	})
@@ -71,7 +71,7 @@ var _ = steps.Then("the map {string} should be empty", func(w *world.World, mapN
 
 var _ = steps.Then("I have created a map {string}", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.CreateMap(dbpath.ToPath(mapName))
 		return nil
 	})
@@ -79,7 +79,7 @@ var _ = steps.Then("I have created a map {string}", func(w *world.World, mapName
 
 var _ = steps.Then("I delete the map {string}", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.Delete(dbpath.ToPath(mapName))
 		return nil
 	})
@@ -87,7 +87,7 @@ var _ = steps.Then("I delete the map {string}", func(w *world.World, mapName str
 
 var _ = steps.Then("the map {string} should not exist", func(w *world.World, mapName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		w.Assert.False(tx.Exists(dbpath.ToPath(mapName)))
 		return nil
 	})
@@ -95,7 +95,7 @@ var _ = steps.Then("the map {string} should not exist", func(w *world.World, map
 
 var _ = steps.Then("the root should have {int} element", func(w *world.World, expected int) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
 		return nil
 	})
@@ -103,7 +103,7 @@ var _ = steps.Then("the root should have {int} element", func(w *world.World, ex
 
 var _ = steps.Then("the root should have {int} elements", func(w *world.World, expected int) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
 		return nil
 	})
@@ -111,7 +111,7 @@ var _ = steps.Then("the root should have {int} elements", func(w *world.World, e
 
 var _ = steps.Then("I put {string} data under {string} in the root", func(w *world.World, content string, dataName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.Put(dbpath.ToPath(dataName), []byte(content))
 		return nil
 	})
@@ -119,7 +119,7 @@ var _ = steps.Then("I put {string} data under {string} in the root", func(w *wor
 
 var _ = steps.Then("the data {string} should exist", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.True(tx.Exists(dbpath.ToPath(dataName)))
 		return nil
 	})
@@ -127,7 +127,7 @@ var _ = steps.Then("the data {string} should exist", func(w *world.World, dataNa
 
 var _ = steps.Then("the context of the data {string} should be {string}", func(w *world.World, dataName string, expectedContent string) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.Equal(expectedContent, string(tx.Get(dbpath.ToPath(dataName))))
 		return nil
 	})
@@ -135,7 +135,7 @@ var _ = steps.Then("the context of the data {string} should be {string}", func(w
 
 var _ = steps.Then("there is data with name {string} in the root", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.Put(dbpath.ToPath(dataName), []byte("this is a test"))
 		return nil
 	})
@@ -143,7 +143,7 @@ var _ = steps.Then("there is data with name {string} in the root", func(w *world
 
 var _ = steps.Then("I delete data {string} from the root", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		tx.Delete(dbpath.ToPath(dataName))
 		return nil
 	})
@@ -151,7 +151,7 @@ var _ = steps.Then("I delete data {string} from the root", func(w *world.World, 
 
 var _ = steps.Then("the data {string} should not exist", func(w *world.World, dataName string) error {
 	db := getDB(w)
-	return database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		w.Assert.False(tx.Exists(dbpath.ToPath(dataName)))
 		return nil
 	})
@@ -159,7 +159,7 @@ var _ = steps.Then("the data {string} should not exist", func(w *world.World, da
 
 var _ = steps.Then("there are {int} maps and {int} data entries in the root", func(w *world.World, countMaps int, countData int) error {
 	db := getDB(w)
-	return database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+	return bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 		cnt := 0
 		for i := 0; i < countMaps; i++ {
 			tx.CreateMap(dbpath.ToPath(fmt.Sprintf("%02d", cnt)))
@@ -176,7 +176,7 @@ var _ = steps.Then("there are {int} maps and {int} data entries in the root", fu
 var _ = steps.Then("I iterate over all entries", func(w *world.World) {
 	db := getDB(w)
 	result := [][2]string{}
-	err := database.SugaredRead(db, func(tx database.SugaredReadTx) error {
+	err := bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
 		for it := tx.Iterator(dbpath.NilPath); !it.IsDone(); it.Next() {
 			result = append(result, [2]string{it.GetKey(), string(it.GetValue())})
 		}

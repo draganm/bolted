@@ -1,12 +1,12 @@
-package database
+package bolted
 
 import "github.com/draganm/bolted/dbpath"
 
-type Bolted interface {
+type Database interface {
 	BeginWrite() (WriteTx, error)
 	BeginRead() (ReadTx, error)
-	Close() error
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
+	Close() error
 }
 
 type WriteTx interface {

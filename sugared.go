@@ -1,4 +1,4 @@
-package database
+package bolted
 
 import (
 	"fmt"
@@ -163,7 +163,7 @@ func (si sugaredIterator) Last() {
 	}
 }
 
-func SugaredRead(db Bolted, f func(tx SugaredReadTx) error) (err error) {
+func SugaredRead(db Database, f func(tx SugaredReadTx) error) (err error) {
 	rtx, err := db.BeginRead()
 	if err != nil {
 		return fmt.Errorf("while starting write transaction: %w", err)
@@ -186,7 +186,7 @@ func SugaredRead(db Bolted, f func(tx SugaredReadTx) error) (err error) {
 
 }
 
-func SugaredWrite(db Bolted, f func(tx SugaredWriteTx) error) (err error) {
+func SugaredWrite(db Database, f func(tx SugaredWriteTx) error) (err error) {
 	wtx, err := db.BeginWrite()
 	if err != nil {
 		return fmt.Errorf("while starting write transaction: %w", err)
