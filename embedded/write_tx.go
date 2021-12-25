@@ -9,23 +9,6 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type WriteTx interface {
-	CreateMap(path dbpath.Path) error
-	Delete(path dbpath.Path) error
-	Put(path dbpath.Path, value []byte) error
-	Rollback() error
-	ReadTx
-}
-
-type ReadTx interface {
-	Get(path dbpath.Path) ([]byte, error)
-	Iterator(path dbpath.Path) (Iterator, error)
-	Exists(path dbpath.Path) (bool, error)
-	IsMap(path dbpath.Path) (bool, error)
-	Size(path dbpath.Path) (uint64, error)
-	Finish() error
-}
-
 type writeTx struct {
 	btx        *bolt.Tx
 	readOnly   bool
@@ -140,7 +123,7 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 
 	b := bucket.Bucket(last)
 	if b == nil {
-		return ErrNotFound
+		return bolted.ErrNotFound
 	}
 
 	err = bucket.DeleteBucket(last)

@@ -1,6 +1,10 @@
 package bolted
 
-import "github.com/draganm/bolted/dbpath"
+import (
+	"errors"
+
+	"github.com/draganm/bolted/dbpath"
+)
 
 type Database interface {
 	BeginWrite() (WriteTx, error)
@@ -35,4 +39,14 @@ type Iterator interface {
 	Seek(key string) error
 	First() error
 	Last() error
+}
+
+var ErrNotFound = errors.New("not found")
+
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, ErrNotFound)
 }

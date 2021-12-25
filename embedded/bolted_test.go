@@ -112,7 +112,7 @@ func TestDelete(t *testing.T) {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
-		require.True(t, embedded.IsNotFound(err))
+		require.True(t, bolted.IsNotFound(err))
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
