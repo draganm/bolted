@@ -163,6 +163,21 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 			if rism != (ism != 0) {
 				return replicated.ErrStale
 			}
+		case get:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			d, err := tx.Get(pth)
+			if err != nil {
+				return fmt.Errorf("while getting local data: %w", err)
+			}
+
+			err = verifyDataOrHash(br, d)
+			if err != nil {
+				return err
+			}
 		default:
 			return errors.New("unsupported operation")
 

@@ -119,6 +119,11 @@ func (w *Writer) Put(path dbpath.Path, value []byte) error {
 		if isMap {
 			return bolted.ErrConflict
 		}
+
+		_, err = w.Get(path)
+		if err != nil {
+			return fmt.Errorf("while recording previous value: %w", err)
+		}
 	}
 
 	err = w.log.WriteByte(put)
@@ -146,8 +151,34 @@ func (w *Writer) Rollback() error {
 	return errors.New("not yet implemented")
 }
 
+const get byte = 6
+
 func (w *Writer) Get(path dbpath.Path) ([]byte, error) {
-	return nil, errors.New("not yet implemented")
+
+	data, err := w.ReadTx.Get(path)
+	if err != nil {
+		return nil, fmt.Errorf("while getting data: %w", err)
+	}
+
+	err = w.log.WriteByte(get)
+	if err != nil {
+		return nil, fmt.Errorf("while writing get: %w", err)
+	}
+
+	err = w.writePath(path)
+
+	if err != nil {
+		return nil, fmt.Errorf("while writing path: %w", err)
+	}
+
+	err = w.writeDataOrHash(data)
+
+	if err != nil {
+		return nil, fmt.Errorf("while writing value: %w", err)
+	}
+
+	return data, nil
+
 }
 func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 	return nil, errors.New("not yet implemented")

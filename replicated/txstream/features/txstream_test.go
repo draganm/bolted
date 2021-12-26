@@ -10,6 +10,7 @@ import (
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 	"github.com/draganm/bolted/embedded"
+	"github.com/draganm/bolted/replicated"
 	"github.com/draganm/bolted/replicated/txstream"
 	"github.com/draganm/senfgurke/step"
 	"github.com/draganm/senfgurke/testrunner"
@@ -95,6 +96,11 @@ func destinationReadTransaction(w *world.World, tx func(tx bolted.SugaredReadTx)
 	return bolted.SugaredRead(destinationDb, tx)
 }
 
+func destinationWriteTransaction(w *world.World, tx func(tx bolted.SugaredWriteTx) error) error {
+	destinationDb := w.Attributes["destination"].(bolted.Database)
+	return bolted.SugaredWrite(destinationDb, tx)
+}
+
 var _ = steps.Then("the destination database should have a map with path {string}", func(w *world.World, pathString string) error {
 	return destinationReadTransaction(w, func(tx bolted.SugaredReadTx) error {
 		w.Assert.True(tx.IsMap(dbpath.MustParse(pathString)))
@@ -162,6 +168,25 @@ var _ = steps.Then("I try putting {string} into path {string}", func(w *world.Wo
 
 var _ = steps.Then("Conflict error should be returned in the original transaction", func(w *world.World) {
 	w.Require.ErrorIs(w.Attributes["lastError"].(error), bolted.ErrConflict)
+})
+
+var _ = steps.Then("the value of {string} has changed to {string} in the destination database", func(w *world.World, pathString string, newValue string) error {
+	return destinationWriteTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		tx.Put(dbpath.MustParse(pathString), []byte(newValue))
+		return nil
+	})
+})
+
+var _ = steps.Then("I try to replicate getting the value {string}", func(w *world.World, pathString string) {
+	err := replicateTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		_ = tx.Get(dbpath.MustParse(pathString))
+		return nil
+	})
+	w.Put("lastError", err)
+})
+
+var _ = steps.Then("Stale error should be returned on replication", func(w *world.World) {
+	w.Require.ErrorIs(w.Attributes["lastError"].(error), replicated.ErrStale)
 })
 
 // ----------
