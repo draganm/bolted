@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -50,6 +51,26 @@ func (w *Writer) writePath(path dbpath.Path) error {
 	return nil
 }
 
+func (w *Writer) writeData(data []byte) error {
+
+	ln := make([]byte, binary.MaxVarintLen64)
+
+	lenlen := binary.PutUvarint(ln, uint64(len(data)))
+
+	_, err := w.log.Write(ln[:lenlen])
+	if err != nil {
+		return fmt.Errorf("while writing length: %w", err)
+	}
+
+	_, err = w.log.Write(data)
+
+	if err != nil {
+		return fmt.Errorf("while writing data: %w", err)
+	}
+
+	return nil
+}
+
 func (w *Writer) CreateMap(path dbpath.Path) error {
 	err := w.log.WriteByte(createMap)
 	if err != nil {
@@ -81,8 +102,44 @@ func (w *Writer) Delete(path dbpath.Path) error {
 
 }
 
+const put byte = 3
+
 func (w *Writer) Put(path dbpath.Path, value []byte) error {
-	return errors.New("not yet implemented")
+	exists, err := w.Exists(path)
+	if err != nil {
+		return fmt.Errorf("while checking if value exists: %w", err)
+	}
+
+	if exists {
+		isMap, err := w.IsMap(path)
+		if err != nil {
+			return fmt.Errorf("while checking if existing value is a map: %w", err)
+		}
+
+		if isMap {
+			return bolted.ErrConflict
+		}
+	}
+
+	err = w.log.WriteByte(put)
+	if err != nil {
+		return fmt.Errorf("while writing put: %w", err)
+	}
+
+	err = w.writePath(path)
+
+	if err != nil {
+		return fmt.Errorf("while writing path: %w", err)
+	}
+
+	err = w.writeData(value)
+
+	if err != nil {
+		return fmt.Errorf("while writing value: %w", err)
+	}
+
+	return nil
+
 }
 
 func (w *Writer) Rollback() error {
@@ -95,12 +152,74 @@ func (w *Writer) Get(path dbpath.Path) ([]byte, error) {
 func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 	return nil, errors.New("not yet implemented")
 }
+
+const exists byte = 4
+
 func (w *Writer) Exists(path dbpath.Path) (bool, error) {
-	return false, errors.New("not yet implemented")
+
+	ex, err := w.ReadTx.Exists(path)
+	if err != nil {
+		return false, fmt.Errorf("while checking if path exists: %w", err)
+	}
+
+	err = w.log.WriteByte(exists)
+	if err != nil {
+		return false, fmt.Errorf("while writing put: %w", err)
+	}
+
+	err = w.writePath(path)
+
+	if err != nil {
+		return false, fmt.Errorf("while writing exists: %w", err)
+	}
+
+	existsData := byte(0)
+	if ex {
+		existsData = 1
+	}
+
+	err = w.log.WriteByte(existsData)
+	if err != nil {
+		return false, fmt.Errorf("while writing exists data: %w", err)
+	}
+
+	return ex, nil
+
 }
+
+const isMap byte = 5
+
 func (w *Writer) IsMap(path dbpath.Path) (bool, error) {
-	return false, errors.New("not yet implemented")
+	log.Println("WIsMap", path)
+	ism, err := w.ReadTx.IsMap(path)
+	if err != nil {
+		return false, fmt.Errorf("while checking if path is a map: %w", err)
+	}
+
+	err = w.log.WriteByte(isMap)
+	if err != nil {
+		return false, fmt.Errorf("while writing isMap: %w", err)
+	}
+
+	err = w.writePath(path)
+
+	if err != nil {
+		return false, fmt.Errorf("while writing path: %w", err)
+	}
+
+	isMapData := byte(0)
+	if ism {
+		isMapData = 1
+	}
+
+	err = w.log.WriteByte(isMapData)
+	if err != nil {
+		return false, fmt.Errorf("while writing is map data: %w", err)
+	}
+
+	return ism, nil
 }
+
 func (w *Writer) Size(path dbpath.Path) (uint64, error) {
 	return 0, errors.New("not yet implemented")
 }

@@ -50,3 +50,13 @@ func IsNotFound(err error) bool {
 
 	return errors.Is(err, ErrNotFound)
 }
+
+var ErrConflict = errors.New("conflict")
+
+func IsConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, ErrConflict)
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/replicated"
 )
 
 func readPath(r *bufio.Reader) (dbpath.Path, error) {
@@ -35,6 +36,26 @@ func readPath(r *bufio.Reader) (dbpath.Path, error) {
 	return pth, nil
 }
 
+func readData(r *bufio.Reader) ([]byte, error) {
+	ln, err := binary.ReadUvarint(r)
+	if err != nil {
+		return nil, fmt.Errorf("while reading data length")
+	}
+
+	data := make([]byte, ln)
+
+	n, err := r.Read(data)
+	if err != nil {
+		return nil, fmt.Errorf("while reading data: %w", err)
+	}
+
+	if n != int(ln) {
+		return nil, errors.New("could not read whole data")
+	}
+
+	return data, nil
+}
+
 func Replay(r io.Reader, db bolted.Database) (err error) {
 	tx, err := db.BeginWrite()
 	if err != nil {
@@ -53,36 +74,98 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 
 	br := bufio.NewReader(r)
 
-	t, err := br.ReadByte()
+	for {
 
-	if err == io.EOF {
-		return nil
-	}
+		t, err := br.ReadByte()
 
-	if err != nil {
-		return fmt.Errorf("while reading type: %w", err)
-	}
-
-	switch t {
-	case createMap:
-		pth, err := readPath(br)
-		if err != nil {
-			return err
+		if err == io.EOF {
+			return nil
 		}
 
-		err = tx.CreateMap(pth)
 		if err != nil {
-			return fmt.Errorf("while creating map: %w", err)
-		}
-	case delete:
-		pth, err := readPath(br)
-		if err != nil {
-			return err
+			return fmt.Errorf("while reading type: %w", err)
 		}
 
-		err = tx.Delete(pth)
-		if err != nil {
-			return fmt.Errorf("while deleting: %w", err)
+		switch t {
+		case createMap:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			err = tx.CreateMap(pth)
+			if err != nil {
+				return fmt.Errorf("while creating map: %w", err)
+			}
+		case delete:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Delete(pth)
+			if err != nil {
+				return fmt.Errorf("while deleting: %w", err)
+			}
+
+		case put:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			data, err := readData(br)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Put(pth, data)
+			if err != nil {
+				return fmt.Errorf("while putting data: %w", err)
+			}
+
+		case exists:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			ex, err := br.ReadByte()
+			if err != nil {
+				return err
+			}
+
+			rex, err := tx.Exists(pth)
+			if err != nil {
+				return err
+			}
+
+			if rex != (ex != 0) {
+				return replicated.ErrStale
+			}
+
+		case isMap:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			ism, err := br.ReadByte()
+			if err != nil {
+				return err
+			}
+
+			rism, err := tx.IsMap(pth)
+			if err != nil {
+				return err
+			}
+
+			if rism != (ism != 0) {
+				return replicated.ErrStale
+			}
+		default:
+			return errors.New("unsupported operation")
+
 		}
 	}
 

@@ -145,7 +145,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 	}()
 
 	if len(path) == 0 {
-		return errors.New("root cannot be deleted")
+		return errors.New("value cannot be put as root")
 	}
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
@@ -164,6 +164,11 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 	last := path[len(path)-1]
 
 	err = bucket.Put([]byte(last), value)
+
+	if err == bolt.ErrIncompatibleValue {
+		return bolted.ErrConflict
+	}
+
 	if err != nil {
 		return err
 	}

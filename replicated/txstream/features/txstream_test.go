@@ -137,6 +137,33 @@ var _ = steps.Then("NotExisting error should be returned in the original transac
 	w.Require.ErrorIs(w.Attributes["lastError"].(error), bolted.ErrNotFound)
 })
 
+var _ = steps.Then("I replicate putting {string} into path {string}", func(w *world.World, data string, pathString string) error {
+	return replicateTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		tx.Put(dbpath.MustParse(pathString), []byte(data))
+		return nil
+	})
+})
+
+var _ = steps.Then("the destination database should have a value with path {string}", func(w *world.World, pathString string) error {
+	return destinationReadTransaction(w, func(tx bolted.SugaredReadTx) error {
+		w.Assert.True(tx.Exists(dbpath.MustParse(pathString)))
+		return nil
+	})
+})
+
+var _ = steps.Then("I try putting {string} into path {string}", func(w *world.World, data string, pathString string) {
+	err := replicateTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		tx.Put(dbpath.MustParse(pathString), []byte(data))
+		return nil
+	})
+
+	w.Put("lastError", err)
+})
+
+var _ = steps.Then("Conflict error should be returned in the original transaction", func(w *world.World) {
+	w.Require.ErrorIs(w.Attributes["lastError"].(error), bolted.ErrConflict)
+})
+
 // ----------
 
 func newMockReplica(db bolted.Database) mockReplica {
