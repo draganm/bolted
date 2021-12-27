@@ -189,6 +189,21 @@ var _ = steps.Then("Stale error should be returned on replication", func(w *worl
 	w.Require.ErrorIs(w.Attributes["lastError"].(error), replicated.ErrStale)
 })
 
+var _ = steps.Then("the I put {string} into path {string} in the destination database", func(w *world.World, data string, pathString string) error {
+	return destinationWriteTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		tx.Put(dbpath.MustParse(pathString), []byte(data))
+		return nil
+	})
+})
+
+var _ = steps.Then("I try replicating geting the size of root", func(w *world.World) {
+	err := replicateTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		_ = tx.Size(dbpath.NilPath)
+		return nil
+	})
+	w.Put("lastError", err)
+})
+
 // ----------
 
 func newMockReplica(db bolted.Database) mockReplica {

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -221,7 +220,6 @@ func (w *Writer) Exists(path dbpath.Path) (bool, error) {
 const isMap byte = 5
 
 func (w *Writer) IsMap(path dbpath.Path) (bool, error) {
-	log.Println("WIsMap", path)
 	ism, err := w.ReadTx.IsMap(path)
 	if err != nil {
 		return false, fmt.Errorf("while checking if path is a map: %w", err)
@@ -251,8 +249,35 @@ func (w *Writer) IsMap(path dbpath.Path) (bool, error) {
 	return ism, nil
 }
 
+const size byte = 7
+
 func (w *Writer) Size(path dbpath.Path) (uint64, error) {
-	return 0, errors.New("not yet implemented")
+	s, err := w.ReadTx.Size(path)
+	if err != nil {
+		return 0, fmt.Errorf("while checking if path is a map: %w", err)
+	}
+
+	err = w.log.WriteByte(size)
+	if err != nil {
+		return 0, fmt.Errorf("while writing size: %w", err)
+	}
+
+	err = w.writePath(path)
+
+	if err != nil {
+		return 0, fmt.Errorf("while writing path: %w", err)
+	}
+
+	data := make([]byte, binary.MaxVarintLen64)
+
+	lenlen := binary.PutUvarint(data, s)
+
+	_, err = w.log.Write(data[:lenlen])
+	if err != nil {
+		return 0, fmt.Errorf("while writing size: %w", err)
+	}
+
+	return s, nil
 }
 
 func (w *Writer) Finish() error {

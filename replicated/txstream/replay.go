@@ -178,6 +178,26 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 			if err != nil {
 				return err
 			}
+		case size:
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			s, err := tx.Size(pth)
+			if err != nil {
+				return fmt.Errorf("while getting local path size: %w", err)
+			}
+
+			es, err := binary.ReadUvarint(br)
+			if err != nil {
+				return fmt.Errorf("while reading path size")
+			}
+
+			if s != es {
+				return replicated.ErrStale
+			}
+
 		default:
 			return errors.New("unsupported operation")
 
