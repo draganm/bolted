@@ -25,7 +25,7 @@ func readPath(r *bufio.Reader) (dbpath.Path, error) {
 		return dbpath.NilPath, fmt.Errorf("while reading path: %w", err)
 	}
 	if n != int(ln) {
-		return dbpath.NilPath, errors.New("could not read whole path")
+		return dbpath.NilPath, fmt.Errorf("could not read the whole path: %d vs %d", n, ln)
 	}
 
 	pth, err := dbpath.Parse(string(sb))
@@ -73,6 +73,8 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 	}()
 
 	br := bufio.NewReader(r)
+
+	iterators := []bolted.Iterator{}
 
 	for {
 
@@ -195,6 +197,47 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 			}
 
 			if s != es {
+				return replicated.ErrStale
+			}
+		case newIterator:
+
+			pth, err := readPath(br)
+			if err != nil {
+				return err
+			}
+
+			it, err := tx.Iterator(pth)
+			if err != nil {
+				return fmt.Errorf("while creating iterator: %w", err)
+			}
+
+			iterators = append(iterators, it)
+
+		case iteratorIsDone:
+
+			idx, err := binary.ReadUvarint(br)
+			if err != nil {
+				return fmt.Errorf("while reading iterator index: %w", err)
+			}
+
+			iidx := int(idx)
+
+			if iidx >= len(iterators) {
+				return fmt.Errorf("iterator index out of range")
+			}
+
+			isd, err := br.ReadByte()
+			if err != nil {
+				return fmt.Errorf("while getting isDone from log: %w", err)
+			}
+
+			it := iterators[iidx]
+			id, err := it.IsDone()
+			if err != nil {
+				return fmt.Errorf("while getting is done status: %w", err)
+			}
+
+			if id != (isd != 0) {
 				return replicated.ErrStale
 			}
 

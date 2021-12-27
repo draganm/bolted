@@ -204,6 +204,19 @@ var _ = steps.Then("I try replicating geting the size of root", func(w *world.Wo
 	w.Put("lastError", err)
 })
 
+var _ = steps.Then("I replicate iteration over the root", func(w *world.World) error {
+	return replicateTransaction(w, func(tx bolted.SugaredWriteTx) error {
+		for it := tx.Iterator(dbpath.NilPath); !it.IsDone(); it.Next() {
+			// do nothing
+		}
+		return nil
+	})
+})
+
+var _ = steps.Then("the replication should succeed", func(w *world.World) {
+	// this is a no-op, since the previous step would fail if replication fails
+})
+
 // ----------
 
 func newMockReplica(db bolted.Database) mockReplica {

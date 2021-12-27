@@ -22,38 +22,39 @@ func init() {
 
 // func encodeDataOrHash(d []byte) error
 
-func (w *Writer) writeDataOrHash(d []byte) error {
-	if len(d) < 17 {
-		err := w.log.WriteByte(byte(len(d)))
-		if err != nil {
-			return fmt.Errorf("while encoding data length: %w", err)
+func writeDataOrHash(d []byte) func(w *bufio.Writer) error {
+	return func(w *bufio.Writer) error {
+		if len(d) < 17 {
+			err := w.WriteByte(byte(len(d)))
+			if err != nil {
+				return fmt.Errorf("while encoding data length: %w", err)
+			}
+			_, err = w.Write(d)
+			if err != nil {
+				return fmt.Errorf("while writing short data: %w", err)
+			}
+			return nil
 		}
-		_, err = w.log.Write(d)
+
+		hash, err := highwayhash.New(key)
 		if err != nil {
-			return fmt.Errorf("while writing short data: %w", err)
+			return fmt.Errorf("failed to create HighwayHash instance: %w", err)
 		}
+
+		h := hash.Sum(d)
+
+		err = w.WriteByte(255)
+		if err != nil {
+			return fmt.Errorf("while writing hash header")
+		}
+
+		_, err = w.Write(h)
+		if err != nil {
+			return fmt.Errorf("while writing data HighwayHash: %w", err)
+		}
+
 		return nil
 	}
-
-	hash, err := highwayhash.New(key)
-	if err != nil {
-		return fmt.Errorf("failed to create HighwayHash instance: %w", err)
-	}
-
-	h := hash.Sum(d)
-
-	err = w.log.WriteByte(255)
-	if err != nil {
-		return fmt.Errorf("while writing hash header")
-	}
-
-	_, err = w.log.Write(h)
-	if err != nil {
-		return fmt.Errorf("while writing data HighwayHash: %w", err)
-	}
-
-	return nil
-
 }
 
 func verifyDataOrHash(r *bufio.Reader, data []byte) error {
