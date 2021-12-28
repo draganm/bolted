@@ -76,6 +76,20 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 
 	iterators := []bolted.Iterator{}
 
+	getIterator := func() (bolted.Iterator, error) {
+		idx, err := binary.ReadUvarint(br)
+		if err != nil {
+			return nil, fmt.Errorf("while reading iterator index: %w", err)
+		}
+
+		iidx := int(idx)
+
+		if iidx >= len(iterators) {
+			return nil, fmt.Errorf("iterator index out of range")
+		}
+
+		return iterators[iidx], nil
+	}
 	for {
 
 		t, err := br.ReadByte()
@@ -215,15 +229,9 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 
 		case iteratorIsDone:
 
-			idx, err := binary.ReadUvarint(br)
+			it, err := getIterator()
 			if err != nil {
-				return fmt.Errorf("while reading iterator index: %w", err)
-			}
-
-			iidx := int(idx)
-
-			if iidx >= len(iterators) {
-				return fmt.Errorf("iterator index out of range")
+				return err
 			}
 
 			isd, err := br.ReadByte()
@@ -231,7 +239,6 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 				return fmt.Errorf("while getting isDone from log: %w", err)
 			}
 
-			it := iterators[iidx]
 			id, err := it.IsDone()
 			if err != nil {
 				return fmt.Errorf("while getting is done status: %w", err)
@@ -239,6 +246,96 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 
 			if id != (isd != 0) {
 				return replicated.ErrStale
+			}
+
+		case iteratorNext:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			err = it.Next()
+			if err != nil {
+				return fmt.Errorf("while performing next on the iterator: %w", err)
+			}
+
+		case iteratorGetKey:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			k, err := it.GetKey()
+			if err != nil {
+				return fmt.Errorf("while getting iterator key: %w", err)
+			}
+
+			sk, err := readData(br)
+			if err != nil {
+				return fmt.Errorf("while reading key from stream: %w", err)
+			}
+
+			if k != string(sk) {
+				return replicated.ErrStale
+			}
+		case iteratorGetValue:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			v, err := it.GetValue()
+			if err != nil {
+				return fmt.Errorf("while getting iterator value: %w", err)
+			}
+
+			err = verifyDataOrHash(br, v)
+			if err != nil {
+				return err
+			}
+
+		case iteratorFirst:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			err = it.First()
+			if err != nil {
+				return err
+			}
+
+		case iteratorLast:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			err = it.Last()
+			if err != nil {
+				return err
+			}
+
+		case iteratorSeek:
+
+			it, err := getIterator()
+			if err != nil {
+				return err
+			}
+
+			key, err := readData(br)
+			if err != nil {
+				return fmt.Errorf("while reading key from stream: %w", err)
+			}
+
+			err = it.Seek(string(key))
+			if err != nil {
+				return err
 			}
 
 		default:

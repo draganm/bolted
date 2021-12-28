@@ -12,14 +12,14 @@ import (
 )
 
 type Writer struct {
-	log bufio.Writer
+	log *bufio.Writer
 	bolted.ReadTx
 	nextIterator uint64
 }
 
 func NewWriter(tx bolted.ReadTx, log io.Writer) *Writer {
 	return &Writer{
-		log:    *bufio.NewWriter(log),
+		log:    bufio.NewWriter(log),
 		ReadTx: tx,
 	}
 }
@@ -112,7 +112,7 @@ const createMap byte = 1
 
 func (w *Writer) CreateMap(path dbpath.Path) error {
 	return writeAll(
-		&w.log,
+		w.log,
 		writeByte(createMap),
 		writePath(path),
 	)
@@ -134,7 +134,7 @@ func (w *Writer) Delete(path dbpath.Path) error {
 	// TODO: get!
 
 	return writeAll(
-		&w.log,
+		w.log,
 		writeByte(delete),
 		writePath(path),
 	)
@@ -166,7 +166,7 @@ func (w *Writer) Put(path dbpath.Path, value []byte) error {
 	}
 
 	return writeAll(
-		&w.log,
+		w.log,
 		writeByte(put),
 		writePath(path),
 		writeData(value),
@@ -175,7 +175,12 @@ func (w *Writer) Put(path dbpath.Path, value []byte) error {
 }
 
 func (w *Writer) Rollback() error {
-	return errors.New("not yet implemented")
+	err := w.ReadTx.Finish()
+	if err != nil {
+		return err
+	}
+
+	return errors.New("rolled back")
 }
 
 const get byte = 6
@@ -188,7 +193,7 @@ func (w *Writer) Get(path dbpath.Path) ([]byte, error) {
 	}
 
 	err = writeAll(
-		&w.log,
+		w.log,
 		writeByte(get),
 		writePath(path),
 		writeDataOrHash(data),
@@ -212,7 +217,7 @@ func (w *Writer) Exists(path dbpath.Path) (bool, error) {
 	}
 
 	err = writeAll(
-		&w.log,
+		w.log,
 		writeByte(exists),
 		writePath(path),
 		writeBool(ex),
@@ -235,7 +240,7 @@ func (w *Writer) IsMap(path dbpath.Path) (bool, error) {
 	}
 
 	err = writeAll(
-		&w.log,
+		w.log,
 		writeByte(isMap),
 		writePath(path),
 		writeBool(ism),
@@ -257,7 +262,7 @@ func (w *Writer) Size(path dbpath.Path) (uint64, error) {
 	}
 
 	err = writeAll(
-		&w.log,
+		w.log,
 		writeByte(size),
 		writePath(path),
 		writeVarUint64(s),
@@ -294,11 +299,14 @@ func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 	w.nextIterator++
 
 	err = writeAll(
-		&w.log,
+		w.log,
 		writeByte(newIterator),
 		writePath(path),
-		// writeVarUint64(idx),
 	)
+
+	if err != nil {
+		return nil, err
+	}
 
 	iw := &iteratorWriter{
 		log: w.log,
@@ -310,7 +318,7 @@ func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 }
 
 type iteratorWriter struct {
-	log bufio.Writer
+	log *bufio.Writer
 	it  bolted.Iterator
 	idx uint64
 }
@@ -324,8 +332,8 @@ func (i *iteratorWriter) GetKey() (string, error) {
 	}
 
 	err = writeAll(
-		&i.log,
-		writeByte(iteratorGetValue),
+		i.log,
+		writeByte(iteratorGetKey),
 		writeVarUint64(i.idx),
 		writeData([]byte(k)),
 	)
@@ -346,7 +354,7 @@ func (i *iteratorWriter) GetValue() ([]byte, error) {
 	}
 
 	err = writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorGetValue),
 		writeVarUint64(i.idx),
 		writeDataOrHash([]byte(v)),
@@ -369,7 +377,7 @@ func (i *iteratorWriter) IsDone() (bool, error) {
 	}
 
 	err = writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorIsDone),
 		writeVarUint64(i.idx),
 		writeBool(d),
@@ -391,7 +399,7 @@ func (i *iteratorWriter) Prev() error {
 		return err
 	}
 	return writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorPrev),
 		writeVarUint64(i.idx),
 	)
@@ -405,7 +413,7 @@ func (i *iteratorWriter) Next() error {
 		return err
 	}
 	return writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorNext),
 		writeVarUint64(i.idx),
 	)
@@ -419,7 +427,7 @@ func (i *iteratorWriter) Seek(key string) error {
 		return err
 	}
 	return writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorSeek),
 		writeVarUint64(i.idx),
 		writeData([]byte(key)),
@@ -435,10 +443,9 @@ func (i *iteratorWriter) First() error {
 	}
 
 	return writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorFirst),
 		writeVarUint64(i.idx),
-		writeData([]byte(key)),
 	)
 }
 
@@ -451,9 +458,8 @@ func (i *iteratorWriter) Last() error {
 	}
 
 	return writeAll(
-		&i.log,
+		i.log,
 		writeByte(iteratorLast),
 		writeVarUint64(i.idx),
-		writeData([]byte(key)),
 	)
 }
