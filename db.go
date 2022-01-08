@@ -27,6 +27,7 @@ type ReadTx interface {
 	Exists(path dbpath.Path) (bool, error)
 	IsMap(path dbpath.Path) (bool, error)
 	Size(path dbpath.Path) (uint64, error)
+	ID() (uint64, error)
 	Finish() error
 }
 

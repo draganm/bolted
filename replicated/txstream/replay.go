@@ -56,10 +56,10 @@ func readData(r *bufio.Reader) ([]byte, error) {
 	return data, nil
 }
 
-func Replay(r io.Reader, db bolted.Database) (err error) {
+func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 	tx, err := db.BeginWrite()
 	if err != nil {
-		return fmt.Errorf("while beginning tx: %w", err)
+		return 0, fmt.Errorf("while beginning tx: %w", err)
 	}
 
 	defer func() {
@@ -71,6 +71,11 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 	defer func() {
 		tx.Finish()
 	}()
+
+	txID, err = tx.ID()
+	if err != nil {
+		return 0, fmt.Errorf("while getting txID: %w", err)
+	}
 
 	br := bufio.NewReader(r)
 
@@ -95,134 +100,135 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 		t, err := br.ReadByte()
 
 		if err == io.EOF {
-			return nil
+
+			return txID, nil
 		}
 
 		if err != nil {
-			return fmt.Errorf("while reading type: %w", err)
+			return 0, fmt.Errorf("while reading type: %w", err)
 		}
 
 		switch t {
 		case createMap:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = tx.CreateMap(pth)
 			if err != nil {
-				return fmt.Errorf("while creating map: %w", err)
+				return 0, fmt.Errorf("while creating map: %w", err)
 			}
 		case delete:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = tx.Delete(pth)
 			if err != nil {
-				return fmt.Errorf("while deleting: %w", err)
+				return 0, fmt.Errorf("while deleting: %w", err)
 			}
 
 		case put:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			data, err := readData(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = tx.Put(pth, data)
 			if err != nil {
-				return fmt.Errorf("while putting data: %w", err)
+				return 0, fmt.Errorf("while putting data: %w", err)
 			}
 
 		case exists:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			ex, err := br.ReadByte()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			rex, err := tx.Exists(pth)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			if rex != (ex != 0) {
-				return replicated.ErrStale
+				return 0, replicated.ErrStale
 			}
 
 		case isMap:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			ism, err := br.ReadByte()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			rism, err := tx.IsMap(pth)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			if rism != (ism != 0) {
-				return replicated.ErrStale
+				return 0, replicated.ErrStale
 			}
 		case get:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			d, err := tx.Get(pth)
 			if err != nil {
-				return fmt.Errorf("while getting local data: %w", err)
+				return 0, fmt.Errorf("while getting local data: %w", err)
 			}
 
 			err = verifyDataOrHash(br, d)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		case size:
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			s, err := tx.Size(pth)
 			if err != nil {
-				return fmt.Errorf("while getting local path size: %w", err)
+				return 0, fmt.Errorf("while getting local path size: %w", err)
 			}
 
 			es, err := binary.ReadUvarint(br)
 			if err != nil {
-				return fmt.Errorf("while reading path size")
+				return 0, fmt.Errorf("while reading path size")
 			}
 
 			if s != es {
-				return replicated.ErrStale
+				return 0, replicated.ErrStale
 			}
 		case newIterator:
 
 			pth, err := readPath(br)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			it, err := tx.Iterator(pth)
 			if err != nil {
-				return fmt.Errorf("while creating iterator: %w", err)
+				return 0, fmt.Errorf("while creating iterator: %w", err)
 			}
 
 			iterators = append(iterators, it)
@@ -231,118 +237,118 @@ func Replay(r io.Reader, db bolted.Database) (err error) {
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			isd, err := br.ReadByte()
 			if err != nil {
-				return fmt.Errorf("while getting isDone from log: %w", err)
+				return 0, fmt.Errorf("while getting isDone from log: %w", err)
 			}
 
 			id, err := it.IsDone()
 			if err != nil {
-				return fmt.Errorf("while getting is done status: %w", err)
+				return 0, fmt.Errorf("while getting is done status: %w", err)
 			}
 
 			if id != (isd != 0) {
-				return replicated.ErrStale
+				return 0, replicated.ErrStale
 			}
 
 		case iteratorNext:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = it.Next()
 			if err != nil {
-				return fmt.Errorf("while performing next on the iterator: %w", err)
+				return 0, fmt.Errorf("while performing next on the iterator: %w", err)
 			}
 
 		case iteratorGetKey:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			k, err := it.GetKey()
 			if err != nil {
-				return fmt.Errorf("while getting iterator key: %w", err)
+				return 0, fmt.Errorf("while getting iterator key: %w", err)
 			}
 
 			sk, err := readData(br)
 			if err != nil {
-				return fmt.Errorf("while reading key from stream: %w", err)
+				return 0, fmt.Errorf("while reading key from stream: %w", err)
 			}
 
 			if k != string(sk) {
-				return replicated.ErrStale
+				return 0, replicated.ErrStale
 			}
 		case iteratorGetValue:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			v, err := it.GetValue()
 			if err != nil {
-				return fmt.Errorf("while getting iterator value: %w", err)
+				return 0, fmt.Errorf("while getting iterator value: %w", err)
 			}
 
 			err = verifyDataOrHash(br, v)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 		case iteratorFirst:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = it.First()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 		case iteratorLast:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			err = it.Last()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 		case iteratorSeek:
 
 			it, err := getIterator()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			key, err := readData(br)
 			if err != nil {
-				return fmt.Errorf("while reading key from stream: %w", err)
+				return 0, fmt.Errorf("while reading key from stream: %w", err)
 			}
 
 			err = it.Seek(string(key))
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 		default:
-			return errors.New("unsupported operation")
+			return 0, errors.New("unsupported operation")
 
 		}
 	}
 
-	return nil
+	// return nil
 }

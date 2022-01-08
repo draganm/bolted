@@ -2,6 +2,7 @@ package embedded
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/draganm/bolted"
@@ -18,25 +19,47 @@ type Bolted struct {
 
 const rootBucketName = "root"
 
-func Open(path string, mode os.FileMode, options ...Option) (bolted.Database, error) {
+type DumpableDatabase interface {
+	bolted.Database
+	Dump(io.Writer) (n int64, err error)
+}
+
+func Open(path string, mode os.FileMode, options ...Option) (DumpableDatabase, error) {
 	db, err := bolt.Open(path, mode, &bolt.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
 	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(rootBucketName))
-		if b == nil {
-			_, err := tx.CreateBucket([]byte(rootBucketName))
+	{
+		tx, err := db.Begin(false)
+		if err != nil {
+			return nil, fmt.Errorf("while opening read tx: %w", err)
+		}
+
+		rootExists := tx.Bucket([]byte(rootBucketName)) != nil
+
+		err = tx.Rollback()
+		if err != nil {
+			return nil, fmt.Errorf("while rolling back read transaction: %w", err)
+		}
+
+		if !rootExists {
+			err = db.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte(rootBucketName))
+				if b == nil {
+					_, err := tx.CreateBucket([]byte(rootBucketName))
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
 			if err != nil {
-				return err
+				return nil, fmt.Errorf("while creating root bucket: %w", err)
 			}
 		}
 
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("while creating root bucket: %w", err)
 	}
 
 	obs := newObserver()
@@ -64,6 +87,18 @@ func (b *Bolted) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (b *Bolted) Dump(w io.Writer) (n int64, err error) {
+	tx, err := b.db.Begin(false)
+	if err != nil {
+		return 0, fmt.Errorf("while starting dump tx: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	return tx.WriteTo(w)
+
 }
 
 func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {

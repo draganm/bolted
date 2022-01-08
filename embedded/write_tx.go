@@ -214,6 +214,10 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 
 }
 
+func (w *writeTx) ID() (uint64, error) {
+	return uint64(w.btx.ID()), nil
+}
+
 func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
 	defer func() {
 		if err != nil {

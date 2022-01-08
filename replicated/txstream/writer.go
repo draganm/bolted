@@ -289,6 +289,14 @@ func (w *Writer) Finish() (err error) {
 
 const newIterator byte = 8
 
+func (w *Writer) ID() (uint64, error) {
+	id, err := w.ReadTx.ID()
+	if err != nil {
+		return 0, err
+	}
+	return id + 1, nil
+}
+
 func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 	it, err := w.ReadTx.Iterator(path)
 	if err != nil {

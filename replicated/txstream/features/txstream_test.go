@@ -66,12 +66,12 @@ func replicateTransaction(w *world.World, tx func(tx bolted.SugaredWriteTx) erro
 
 	destinationDb := w.Attributes["destination"].(bolted.Database)
 
-	err = txstream.Replay(bytes.NewReader(sourceDb.txLog.Bytes()), destinationDb)
+	_, err = txstream.Replay(bytes.NewReader(sourceDb.txLog.Bytes()), destinationDb)
 	if err != nil {
 		return fmt.Errorf("while replaying transaction to destination: %w", err)
 	}
 
-	err = txstream.Replay(bytes.NewReader(sourceDb.txLog.Bytes()), w.Attributes["sourceOriginal"].(bolted.Database))
+	_, err = txstream.Replay(bytes.NewReader(sourceDb.txLog.Bytes()), w.Attributes["sourceOriginal"].(bolted.Database))
 	if err != nil {
 		return fmt.Errorf("while replaying transaction to original source: %w", err)
 	}
