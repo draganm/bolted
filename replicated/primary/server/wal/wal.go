@@ -20,6 +20,7 @@ type WAL struct {
 	endPos      int64
 	lastIndex   uint64
 	indexOffset uint64
+	writing     bool
 }
 
 var ErrCorrupted = errors.New("WAL is corrupted")
@@ -59,7 +60,7 @@ func Open(name string) (w *WAL, err error) {
 
 	idxSize := idxStat.Size()
 	if idxSize%16 != 0 {
-		return nil, fmt.Errorf("size of index file is invalid - not divisible by 16")
+		return nil, fmt.Errorf("%w: size of index file is invalid - not divisible by 16", ErrCorrupted)
 	}
 
 	lastIdex := idxSize / 16
@@ -110,17 +111,20 @@ var ErrConflict = errors.New("index conflict")
 
 func (w *WAL) Append(prevIndex uint64, r io.Reader) error {
 	w.mu.Lock()
-
-	// TODO: don't lock while writing
-	defer w.mu.Unlock()
+	if w.writing {
+		w.mu.Unlock()
+		return ErrConflict
+	}
 
 	lastLogIndex := w.lastIndex + w.indexOffset
+	w.writing = true
+	startPos := w.endPos
+
+	w.mu.Unlock()
 
 	if lastLogIndex != prevIndex {
 		return fmt.Errorf("%w: expected %d, got %d", ErrConflict, lastLogIndex, prevIndex)
 	}
-
-	startPos := w.endPos
 
 	l, err := io.Copy(w.log, r)
 	if err != nil {
@@ -143,10 +147,13 @@ func (w *WAL) Append(prevIndex uint64, r io.Reader) error {
 		return ErrCorrupted
 	}
 
+	w.mu.Lock()
 	w.lastIndex++
 	w.endPos += l
 
 	w.cond.Broadcast()
+	w.writing = false
+	w.mu.Unlock()
 
 	return nil
 
@@ -159,16 +166,6 @@ func (w *WAL) CopyOrWait(ctx context.Context, fromIndex uint64, wr io.Writer) er
 		w.mu.Lock()
 		defer w.mu.Unlock()
 		defer close(endPosChan)
-
-		// if w.lastIndex+w.indexOffset > fromIndex {
-		// 	endPosChan <- w.endPos
-		// 	return
-		// }
-
-		// go func() {
-		// 	<-ctx.Done()
-		// 	close(endPosChan)
-		// }()
 
 		for w.lastIndex+w.indexOffset <= fromIndex {
 			if ctx.Err() != nil {
