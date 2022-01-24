@@ -1,58 +1,35 @@
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/binary"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/draganm/bolted"
-	"github.com/draganm/bolted/embedded"
-	"github.com/draganm/bolted/replicated"
-	"github.com/draganm/bolted/replicated/txstream"
+	"github.com/draganm/bolted/replicated/primary/server/wal"
 	"github.com/gorilla/mux"
 )
 
 type Server struct {
 	*mux.Router
-	db embedded.DumpableDatabase
-	// txDir string
-	transactions map[uint64][]byte
-	mu           *sync.Mutex
-	cnd          *sync.Cond
-	lastTxID     uint64
+	wal *wal.WAL
 }
 
-func New(db embedded.DumpableDatabase) (*Server, error) {
+func New(logName string) (*Server, error) {
 	r := mux.NewRouter()
 
-	var lastTxID uint64
-
-	err := bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
-		lastTxID = tx.ID()
-		return nil
-	})
-
+	w, err := wal.Open(logName)
 	if err != nil {
-		return nil, fmt.Errorf("while getting txID: %w", err)
+		return nil, fmt.Errorf("while opening WAL: %w", err)
 	}
 
-	mu := new(sync.Mutex)
 	s := &Server{
-		Router:       r,
-		db:           db,
-		mu:           mu,
-		cnd:          sync.NewCond(mu),
-		transactions: make(map[uint64][]byte),
-		lastTxID:     lastTxID,
+		Router: r,
+		wal:    w,
 	}
-	r.Methods("GET").Path("/db").HandlerFunc(s.dump)
+	// r.Methods("GET").Path("/db").HandlerFunc(s.dump)
 	r.Methods("GET").Path("/db/poll").HandlerFunc(s.pollForUpdates)
 	r.Methods("POST").Path("/db").HandlerFunc(s.commit)
 
@@ -72,106 +49,39 @@ func (p *Server) pollForUpdates(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, fmt.Errorf("while parsing poll query parameter: %w", err).Error(), 400)
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), poll)
-	defer cancel()
-
-	p.mu.Lock()
-	lastTxID := p.lastTxID
-	p.mu.Unlock()
-
-	if from >= lastTxID {
-		txAvailable := make(chan struct{})
-		go func() {
-			p.mu.Lock()
-			defer p.mu.Unlock()
-			for {
-				if from < p.lastTxID {
-					break
-				}
-				p.cnd.Wait()
-			}
-			close(txAvailable)
-		}()
-
-		fmt.Println("---- waiting for tx")
-
-		select {
-		case <-ctx.Done():
-			// nothing to do,
-			rw.WriteHeader(204)
-			return
-		case <-txAvailable:
-			break
-		}
+	if poll > 0 {
+		ctx, cancel := context.WithTimeout(r.Context(), poll)
+		err = p.wal.CopyOrWait(ctx, from, rw)
+		cancel()
+	} else {
+		err = p.wal.CopyNoWait(from, rw)
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	fmt.Println("---- returning from", from, "to", p.lastTxID)
-
-	if from < p.lastTxID {
-		bw := bufio.NewWriter(rw)
-		for txID := from + 1; txID <= p.lastTxID; txID++ {
-			uvbuf := make([]byte, binary.MaxVarintLen64)
-
-			l := binary.PutUvarint(uvbuf, txID)
-			_, err = bw.Write(uvbuf[:l])
-			if err != nil {
-				// log?
-				return
-			}
-
-			d := p.transactions[txID]
-
-			l = binary.PutUvarint(uvbuf, uint64(len(d)))
-			_, err = bw.Write(uvbuf[:l])
-			if err != nil {
-				// log?
-				return
-			}
-
-			_, err = bw.Write(d)
-			if err != nil {
-				// log?
-				return
-			}
-		}
-		bw.Flush()
-	}
-
-}
-
-func (p *Server) dump(rw http.ResponseWriter, r *http.Request) {
-	p.db.Dump(rw)
-}
-
-func (p *Server) commit(rw http.ResponseWriter, r *http.Request) {
-
-	p.mu.Lock()
-
-	defer p.mu.Unlock()
-
-	txb := new(bytes.Buffer)
-	tr := io.TeeReader(r.Body, txb)
-
-	txID, err := txstream.Replay(tr, p.db)
-	if replicated.IsStale(err) {
-		// rw.WriteHeader(409)
-		http.Error(rw, err.Error(), http.StatusConflict)
+	if errors.Is(err, wal.ErrNoData) {
+		http.Error(rw, err.Error(), 204)
 		return
 	}
 
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		http.Error(rw, err.Error(), 500)
+	}
+
+}
+
+func (p *Server) commit(rw http.ResponseWriter, r *http.Request) {
+	prev, err := strconv.ParseUint(r.URL.Query().Get("prev"), 10, 64)
+	if err != nil {
+		http.Error(rw, fmt.Errorf("while parsing prev query parameter: %w", err).Error(), 400)
 		return
 	}
 
-	p.transactions[txID] = txb.Bytes()
-	p.lastTxID = txID
-	p.cnd.Broadcast()
+	err = p.wal.Append(prev, r.Body)
 
-	rw.Write([]byte(fmt.Sprintf("%d", txID)))
+	switch {
+	case errors.Is(err, wal.ErrConflict):
+		http.Error(rw, err.Error(), 409)
+	case err != nil:
+		http.Error(rw, err.Error(), 500)
+	}
 
 }

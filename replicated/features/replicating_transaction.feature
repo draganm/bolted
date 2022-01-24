@@ -1,8 +1,8 @@
 Feature: Replicating Transaction
 
-    Scenario: Replicating PUT
-        Given an empty primary server
-        And a replica connected to the primary
-        When I execute putting of "foo" on the path "bar" on the replica
-        Then the primary server should have value "foo" on the path "bar"
-        And the replica should have value "foo" on the path "bar"
+    Scenario: Replicating PUT back to the original replica
+        Given an running primary server
+        And value of "foo" being set ot "bar" on the primary server
+        When I connect to the primary server
+        Then the connecting should succeed
+        And the value of "foo" should be "bar" on the replica

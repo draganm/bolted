@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/bolted/replicated/primary/server"
 	"github.com/draganm/bolted/replicated/replica"
 	"github.com/draganm/senfgurke/step"
@@ -35,15 +35,7 @@ func startEmptyPrimaryServer(w *world.World) error {
 		return os.RemoveAll(td)
 	})
 
-	primaryDB, err := embedded.Open(filepath.Join(td, "source"), 0700)
-	if err != nil {
-		return fmt.Errorf("while opening source db: %w", err)
-	}
-	w.Put("primaryDB", primaryDB)
-
-	w.AddCleanup(primaryDB.Close)
-
-	ps, err := server.New(primaryDB)
+	ps, err := server.New(filepath.Join(td, "source"))
 	if err != nil {
 		return fmt.Errorf("while starting server: %w", err)
 	}
@@ -71,6 +63,26 @@ func startEmptyPrimaryServer(w *world.World) error {
 var _ = steps.Given("an empty primary server", func(w *world.World) error {
 	return startEmptyPrimaryServer(w)
 })
+
+func runInTemporaryReplica(w *world.World, wtx func(tx bolted.SugaredWriteTx) error) error {
+	td, err := os.MkdirTemp("", "*")
+
+	if err != nil {
+		return err
+	}
+
+	defer os.RemoveAll(td)
+
+	replica, err := replica.Open(context.Background(), w.GetString("primaryURL"), filepath.Join(td, "db"))
+	if err != nil {
+		return err
+	}
+
+	defer replica.Close()
+
+	return bolted.SugaredWrite(replica, wtx)
+
+}
 
 func openReplica(w *world.World) error {
 	td, err := os.MkdirTemp("", "*")
@@ -134,15 +146,15 @@ var _ = steps.Given("an running primary server", func(w *world.World) error {
 })
 
 var _ = steps.Given("value of {string} being set ot {string} on the primary server", func(w *world.World, pathString string, value string) error {
-	primaryDB := w.Attributes["primaryDB"].(bolted.Database)
-	return bolted.SugaredWrite(primaryDB, func(tx bolted.SugaredWriteTx) error {
+	return runInTemporaryReplica(w, func(tx bolted.SugaredWriteTx) error {
 		tx.Put(dbpath.MustParse(pathString), []byte(value))
 		return nil
 	})
 })
 
 var _ = steps.Then("the value of {string} should be {string} on the replica", func(w *world.World, pathString string, expectedValue string) error {
-	primaryDB := w.Attributes["primaryDB"].(bolted.Database)
+	primaryDB := w.Attributes["replica"].(bolted.Database)
+	time.Sleep(100 * time.Millisecond)
 	return bolted.SugaredRead(primaryDB, func(tx bolted.SugaredReadTx) error {
 		w.Assert.Equal(expectedValue, string(tx.Get(dbpath.MustParse(pathString))))
 		return nil

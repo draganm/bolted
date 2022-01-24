@@ -52,7 +52,6 @@ func Open(path string, mode os.FileMode, options ...Option) (DumpableDatabase, e
 						return err
 					}
 				}
-
 				return nil
 			})
 			if err != nil {

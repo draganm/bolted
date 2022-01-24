@@ -12,6 +12,7 @@ type Flexbuffer struct {
 	head        *bytes.Buffer
 	tail        *os.File
 	headMaxSize int
+	TotalSize   int
 }
 
 func New(headMaxSize int) *Flexbuffer {
@@ -21,10 +22,12 @@ func New(headMaxSize int) *Flexbuffer {
 	}
 }
 
-func (f *Flexbuffer) Write(d []byte) (int, error) {
+func (f *Flexbuffer) Write(d []byte) (written int, err error) {
 	remainingHeadSpace := f.headMaxSize - f.head.Len()
 
-	written := 0
+	defer func() {
+		f.TotalSize += written
+	}()
 
 	if len(d) < remainingHeadSpace {
 		remainingHeadSpace = len(d)

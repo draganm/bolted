@@ -109,7 +109,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 		}
 
 		switch t {
-		case createMap:
+		case CreateMap:
 			pth, err := readPath(br)
 			if err != nil {
 				return 0, err

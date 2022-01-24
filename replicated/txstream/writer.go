@@ -24,7 +24,7 @@ func NewWriter(tx bolted.ReadTx, log io.Writer) *Writer {
 	}
 }
 
-func writeAll(w *bufio.Writer, fns ...func(w *bufio.Writer) error) error {
+func WriteAll(w *bufio.Writer, fns ...func(w *bufio.Writer) error) error {
 	for _, f := range fns {
 		err := f(w)
 		if err != nil {
@@ -43,7 +43,7 @@ func writeVarUint64(v uint64) func(w *bufio.Writer) error {
 	}
 }
 
-func writeByte(b byte) func(w *bufio.Writer) error {
+func WriteByte(b byte) func(w *bufio.Writer) error {
 	return func(w *bufio.Writer) error {
 		return w.WriteByte(b)
 	}
@@ -58,7 +58,7 @@ func writeBool(v bool) func(w *bufio.Writer) error {
 	}
 }
 
-func writePath(path dbpath.Path) func(w *bufio.Writer) error {
+func WritePath(path dbpath.Path) func(w *bufio.Writer) error {
 	return func(w *bufio.Writer) error {
 		pathString := path.String()
 
@@ -108,13 +108,13 @@ func writeData(data []byte) func(w *bufio.Writer) error {
 	}
 }
 
-const createMap byte = 1
+const CreateMap byte = 1
 
 func (w *Writer) CreateMap(path dbpath.Path) error {
-	return writeAll(
+	return WriteAll(
 		w.log,
-		writeByte(createMap),
-		writePath(path),
+		WriteByte(CreateMap),
+		WritePath(path),
 	)
 }
 
@@ -133,10 +133,10 @@ func (w *Writer) Delete(path dbpath.Path) error {
 
 	// TODO: get!
 
-	return writeAll(
+	return WriteAll(
 		w.log,
-		writeByte(delete),
-		writePath(path),
+		WriteByte(delete),
+		WritePath(path),
 	)
 
 }
@@ -165,10 +165,10 @@ func (w *Writer) Put(path dbpath.Path, value []byte) error {
 		}
 	}
 
-	return writeAll(
+	return WriteAll(
 		w.log,
-		writeByte(put),
-		writePath(path),
+		WriteByte(put),
+		WritePath(path),
 		writeData(value),
 	)
 
@@ -192,10 +192,10 @@ func (w *Writer) Get(path dbpath.Path) ([]byte, error) {
 		return nil, fmt.Errorf("while getting data: %w", err)
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		w.log,
-		writeByte(get),
-		writePath(path),
+		WriteByte(get),
+		WritePath(path),
 		writeDataOrHash(data),
 	)
 
@@ -216,10 +216,10 @@ func (w *Writer) Exists(path dbpath.Path) (bool, error) {
 		return false, fmt.Errorf("while checking if path exists: %w", err)
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		w.log,
-		writeByte(exists),
-		writePath(path),
+		WriteByte(exists),
+		WritePath(path),
 		writeBool(ex),
 	)
 
@@ -239,10 +239,10 @@ func (w *Writer) IsMap(path dbpath.Path) (bool, error) {
 		return false, fmt.Errorf("while checking if path is a map: %w", err)
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		w.log,
-		writeByte(isMap),
-		writePath(path),
+		WriteByte(isMap),
+		WritePath(path),
 		writeBool(ism),
 	)
 
@@ -261,10 +261,10 @@ func (w *Writer) Size(path dbpath.Path) (uint64, error) {
 		return 0, fmt.Errorf("while checking if path is a map: %w", err)
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		w.log,
-		writeByte(size),
-		writePath(path),
+		WriteByte(size),
+		WritePath(path),
 		writeVarUint64(s),
 	)
 
@@ -306,10 +306,10 @@ func (w *Writer) Iterator(path dbpath.Path) (bolted.Iterator, error) {
 	idx := w.nextIterator
 	w.nextIterator++
 
-	err = writeAll(
+	err = WriteAll(
 		w.log,
-		writeByte(newIterator),
-		writePath(path),
+		WriteByte(newIterator),
+		WritePath(path),
 	)
 
 	if err != nil {
@@ -339,9 +339,9 @@ func (i *iteratorWriter) GetKey() (string, error) {
 		return "", err
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		i.log,
-		writeByte(iteratorGetKey),
+		WriteByte(iteratorGetKey),
 		writeVarUint64(i.idx),
 		writeData([]byte(k)),
 	)
@@ -361,9 +361,9 @@ func (i *iteratorWriter) GetValue() ([]byte, error) {
 		return nil, err
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		i.log,
-		writeByte(iteratorGetValue),
+		WriteByte(iteratorGetValue),
 		writeVarUint64(i.idx),
 		writeDataOrHash([]byte(v)),
 	)
@@ -384,9 +384,9 @@ func (i *iteratorWriter) IsDone() (bool, error) {
 		return false, err
 	}
 
-	err = writeAll(
+	err = WriteAll(
 		i.log,
-		writeByte(iteratorIsDone),
+		WriteByte(iteratorIsDone),
 		writeVarUint64(i.idx),
 		writeBool(d),
 	)
@@ -406,9 +406,9 @@ func (i *iteratorWriter) Prev() error {
 	if err != nil {
 		return err
 	}
-	return writeAll(
+	return WriteAll(
 		i.log,
-		writeByte(iteratorPrev),
+		WriteByte(iteratorPrev),
 		writeVarUint64(i.idx),
 	)
 }
@@ -420,9 +420,9 @@ func (i *iteratorWriter) Next() error {
 	if err != nil {
 		return err
 	}
-	return writeAll(
+	return WriteAll(
 		i.log,
-		writeByte(iteratorNext),
+		WriteByte(iteratorNext),
 		writeVarUint64(i.idx),
 	)
 }
@@ -434,9 +434,9 @@ func (i *iteratorWriter) Seek(key string) error {
 	if err != nil {
 		return err
 	}
-	return writeAll(
+	return WriteAll(
 		i.log,
-		writeByte(iteratorSeek),
+		WriteByte(iteratorSeek),
 		writeVarUint64(i.idx),
 		writeData([]byte(key)),
 	)
@@ -450,9 +450,9 @@ func (i *iteratorWriter) First() error {
 		return err
 	}
 
-	return writeAll(
+	return WriteAll(
 		i.log,
-		writeByte(iteratorFirst),
+		WriteByte(iteratorFirst),
 		writeVarUint64(i.idx),
 	)
 }
@@ -465,9 +465,9 @@ func (i *iteratorWriter) Last() error {
 		return err
 	}
 
-	return writeAll(
+	return WriteAll(
 		i.log,
-		writeByte(iteratorLast),
+		WriteByte(iteratorLast),
 		writeVarUint64(i.idx),
 	)
 }

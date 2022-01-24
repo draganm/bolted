@@ -2,16 +2,18 @@ package replica
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/dbpath"
 	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/bolted/replicated"
 	"github.com/draganm/bolted/replicated/txstream"
@@ -32,42 +34,6 @@ type replica struct {
 func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	_, err := os.Stat(dbPath)
-	switch {
-	case os.IsNotExist(err):
-		req, err := http.NewRequest("GET", primaryURL, nil)
-		if err != nil {
-			return nil, fmt.Errorf("while creating GET request: %w", err)
-		}
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("while downloading database: %w", err)
-		}
-		defer res.Body.Close()
-
-		if res.StatusCode != 200 {
-			return nil, fmt.Errorf("unexpected server status when downloading db dump: %s", res.Status)
-		}
-
-		f, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0700)
-		if err != nil {
-			return nil, fmt.Errorf("while creating db file: %w", err)
-		}
-
-		_, err = io.Copy(f, res.Body)
-		if err != nil {
-			return nil, fmt.Errorf("while downloading db file: %w", err)
-		}
-
-		err = f.Close()
-		if err != nil {
-			return nil, fmt.Errorf("while closing db file: %w", err)
-		}
-
-	case err != nil:
-		return nil, fmt.Errorf("while getting stat of dbfile: %w", err)
-	}
-
 	embedded, err := embedded.Open(dbPath, 0700)
 	if err != nil {
 		cancel()
@@ -81,9 +47,13 @@ func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 		ctx:        ctx,
 	}
 
+	err = r.sync(0)
+	if err != nil {
+		return nil, fmt.Errorf("while performing initial sync: %w", err)
+	}
+
 	go func() {
 		for ctx.Err() == nil {
-			fmt.Println("poll")
 			err := r.sync(30 * time.Second)
 			if err != nil {
 				fmt.Println("error polling:", err)
@@ -138,7 +108,6 @@ func (r *replica) sync(pollingPeriod time.Duration) error {
 		br := bufio.NewReader(res.Body)
 		txID, err := binary.ReadUvarint(br)
 		if err == io.EOF {
-			fmt.Println("replicated")
 			// all good, finish
 			return nil
 		}
@@ -162,7 +131,6 @@ func (r *replica) sync(pollingPeriod time.Duration) error {
 		if err != nil {
 			return fmt.Errorf("while replaying tx %d: %w", txID, err)
 		}
-		fmt.Println("replaying done")
 
 	}
 
@@ -185,6 +153,7 @@ func (r *replica) BeginWrite() (bolted.WriteTx, error) {
 		primaryURL: r.primaryURL,
 		Writer:     txstream.NewWriter(rtx, buf),
 		buf:        buf,
+		db:         r.Database,
 	}, nil
 }
 
@@ -193,15 +162,58 @@ type remoteWriteTx struct {
 	*txstream.Writer
 	buf      *flexbuffer.Flexbuffer
 	commited bool
+	db       bolted.Database
+}
+
+func writeUVariant(w io.Writer, val uint64) error {
+	ln := make([]byte, binary.MaxVarintLen64)
+
+	lenlen := binary.PutUvarint(ln, val)
+
+	_, err := w.Write(ln[:lenlen])
+	if err != nil {
+		return fmt.Errorf("while writing val: %w", err)
+	}
+
+	return nil
 }
 
 func (r *remoteWriteTx) Finish() error {
-	err := r.Writer.Finish()
+	id, err := r.ReadTx.ID()
+	if err != nil {
+		return fmt.Errorf("while getting tx id: %w", err)
+	}
+
+	err = r.Writer.Finish()
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", r.primaryURL, r.buf)
+	postURL, err := url.Parse(r.primaryURL)
+	if err != nil {
+		return fmt.Errorf("while parsing primary URL: %w", err)
+	}
+
+	q := postURL.Query()
+	q.Set("prev", fmt.Sprintf("%d", id))
+
+	postURL.RawQuery = q.Encode()
+
+	header := new(bytes.Buffer)
+
+	txID := id + 1
+
+	err = writeUVariant(header, txID)
+	if err != nil {
+		return fmt.Errorf("while writing tx id")
+	}
+
+	err = writeUVariant(header, uint64(r.buf.TotalSize))
+	if err != nil {
+		return fmt.Errorf("while writing tx total size")
+	}
+
+	req, err := http.NewRequest("POST", postURL.String(), io.MultiReader(header, r.buf))
 	if err != nil {
 		return fmt.Errorf("while creating POST request: %w", err)
 	}
@@ -221,7 +233,36 @@ func (r *remoteWriteTx) Finish() error {
 		return fmt.Errorf("unexpected status: %s", res.Status)
 	}
 
-	// TODO: wait for tx to be replicated
-	time.Sleep(500 * time.Millisecond)
+	observeChannel, cancelObserver := r.db.Observe(dbpath.NilPath.ToMatcher().AppendAnySubpathMatcher().AppendAnyElementMatcher())
+	defer cancelObserver()
+
+	var currentID uint64
+
+	// this can be made much easier by adding a custom tx listener
+	err = bolted.SugaredRead(r.db, func(tx bolted.SugaredReadTx) error {
+		currentID = tx.ID()
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("while reading current tx ID: %w", err)
+	}
+
+	if currentID >= txID {
+		return nil
+	}
+
+	for range observeChannel {
+		err = bolted.SugaredRead(r.db, func(tx bolted.SugaredReadTx) error {
+			currentID = tx.ID()
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("while reading current tx ID: %w", err)
+		}
+
+		if currentID >= txID {
+			return nil
+		}
+	}
 	return nil
 }
