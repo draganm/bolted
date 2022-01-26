@@ -10,10 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/draganm/bolted"
-	"github.com/draganm/bolted/dbpath"
 	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/bolted/replicated"
 	"github.com/draganm/bolted/replicated/txstream"
@@ -29,23 +29,55 @@ type replica struct {
 	cancel     func()
 	primaryURL string
 	ctx        context.Context
+	mu         *sync.Mutex
+	cond       *sync.Cond
+	lastTXID   uint64
+}
+
+type writeTxNumberListener struct {
+	bolted.WriteTx
+	setTxNumber func(uint64)
+}
+
+func (l *writeTxNumberListener) Finish() error {
+	id, _ := l.WriteTx.ID()
+	err := l.WriteTx.Finish()
+	if err != nil {
+		return err
+	}
+	l.setTxNumber(id)
+	return nil
 }
 
 func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	embedded, err := embedded.Open(dbPath, 0700)
+	mu := new(sync.Mutex)
+	cond := sync.NewCond(mu)
+
+	r := &replica{
+		primaryURL: primaryURL,
+		cancel:     cancel,
+		ctx:        ctx,
+		mu:         mu,
+		cond:       cond,
+	}
+
+	embedded, err := embedded.Open(dbPath, 0700, embedded.WithWriteTxDecorators(func(tx bolted.WriteTx) bolted.WriteTx {
+		return &writeTxNumberListener{tx, func(lastTXID uint64) {
+			r.mu.Lock()
+			r.lastTXID = lastTXID
+			r.cond.Broadcast()
+			r.mu.Unlock()
+
+		}}
+	}))
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("while opening local embedded db: %w", err)
 	}
 
-	r := &replica{
-		primaryURL: primaryURL,
-		Database:   embedded,
-		cancel:     cancel,
-		ctx:        ctx,
-	}
+	r.Database = embedded
 
 	err = r.sync(0)
 	if err != nil {
@@ -56,13 +88,21 @@ func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 		for ctx.Err() == nil {
 			err := r.sync(30 * time.Second)
 			if err != nil {
-				fmt.Println("error polling:", err)
 				time.Sleep(500 * time.Millisecond)
 			}
 		}
 	}()
 
 	return r, nil
+}
+
+func (r *replica) waitForTxID(lowest uint64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for r.lastTXID < lowest {
+		fmt.Println("waiting for", lowest, "current", r.lastTXID)
+		r.cond.Wait()
+	}
 }
 
 func (r *replica) sync(pollingPeriod time.Duration) error {
@@ -150,19 +190,19 @@ func (r *replica) BeginWrite() (bolted.WriteTx, error) {
 	buf := flexbuffer.New(128 * 1024 * 1024)
 
 	return &remoteWriteTx{
-		primaryURL: r.primaryURL,
-		Writer:     txstream.NewWriter(rtx, buf),
-		buf:        buf,
-		db:         r.Database,
+		primaryURL:  r.primaryURL,
+		Writer:      txstream.NewWriter(rtx, buf),
+		buf:         buf,
+		waitForTxID: r.waitForTxID,
 	}, nil
 }
 
 type remoteWriteTx struct {
 	primaryURL string
 	*txstream.Writer
-	buf      *flexbuffer.Flexbuffer
-	commited bool
-	db       bolted.Database
+	buf         *flexbuffer.Flexbuffer
+	commited    bool
+	waitForTxID func(uint64)
 }
 
 func writeUVariant(w io.Writer, val uint64) error {
@@ -233,36 +273,6 @@ func (r *remoteWriteTx) Finish() error {
 		return fmt.Errorf("unexpected status: %s", res.Status)
 	}
 
-	observeChannel, cancelObserver := r.db.Observe(dbpath.NilPath.ToMatcher().AppendAnySubpathMatcher().AppendAnyElementMatcher())
-	defer cancelObserver()
-
-	var currentID uint64
-
-	// this can be made much easier by adding a custom tx listener
-	err = bolted.SugaredRead(r.db, func(tx bolted.SugaredReadTx) error {
-		currentID = tx.ID()
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("while reading current tx ID: %w", err)
-	}
-
-	if currentID >= txID {
-		return nil
-	}
-
-	for range observeChannel {
-		err = bolted.SugaredRead(r.db, func(tx bolted.SugaredReadTx) error {
-			currentID = tx.ID()
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("while reading current tx ID: %w", err)
-		}
-
-		if currentID >= txID {
-			return nil
-		}
-	}
+	r.waitForTxID(txID)
 	return nil
 }

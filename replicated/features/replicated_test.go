@@ -72,7 +72,6 @@ func runInTemporaryReplica(w *world.World, wtx func(tx bolted.SugaredWriteTx) er
 	}
 
 	defer os.RemoveAll(td)
-
 	replica, err := replica.Open(context.Background(), w.GetString("primaryURL"), filepath.Join(td, "db"))
 	if err != nil {
 		return err

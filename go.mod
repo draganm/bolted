@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/draganm/senfgurke v0.1.0
+	github.com/draganm/senfgurke v0.1.1
 	github.com/gorilla/mux v1.8.0
 	github.com/minio/highwayhash v1.0.2
 	github.com/prometheus/client_golang v1.10.0
