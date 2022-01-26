@@ -1,19 +1,19 @@
 package metrics
 
 import (
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/embedded"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type metricsTXWriter struct {
-	database.WriteTx
+	bolted.WriteTx
 	dbName string
 	failed bool
 }
 
 func NewWriteTxDecorator(dbName string) embedded.WriteTxDecorator {
-	return embedded.WriteTxDecorator(func(tx database.WriteTx) database.WriteTx {
+	return embedded.WriteTxDecorator(func(tx bolted.WriteTx) bolted.WriteTx {
 		cnt, err := numberOfWriteTransactionsVec.GetMetricWithLabelValues(dbName)
 		if err != nil {
 			// TODO: log?

@@ -61,6 +61,14 @@ func Parse(p string) (Path, error) {
 	return Path(parts), nil
 }
 
+func MustParse(p string) Path {
+	pth, err := Parse(p)
+	if err != nil {
+		panic(err)
+	}
+	return pth
+}
+
 func ToPath(p ...string) Path {
 	return Path(p)
 }

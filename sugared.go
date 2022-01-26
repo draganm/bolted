@@ -1,4 +1,4 @@
-package database
+package bolted
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ type SugaredReadTx interface {
 	Exists(path dbpath.Path) bool
 	IsMap(path dbpath.Path) bool
 	Size(path dbpath.Path) uint64
+	ID() uint64
 }
 
 type SugaredIterator interface {
@@ -68,6 +69,14 @@ func (st sugaredReadTx) Get(path dbpath.Path) []byte {
 		panic(err)
 	}
 	return d
+}
+
+func (st sugaredReadTx) ID() uint64 {
+	id, err := st.tx.ID()
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func (st sugaredReadTx) Iterator(path dbpath.Path) SugaredIterator {
@@ -136,6 +145,7 @@ func (si sugaredIterator) Prev() {
 		panic(err)
 	}
 }
+
 func (si sugaredIterator) Next() {
 	err := si.it.Next()
 	if err != nil {
@@ -156,6 +166,7 @@ func (si sugaredIterator) First() {
 		panic(err)
 	}
 }
+
 func (si sugaredIterator) Last() {
 	err := si.it.Last()
 	if err != nil {
@@ -163,7 +174,7 @@ func (si sugaredIterator) Last() {
 	}
 }
 
-func SugaredRead(db Bolted, f func(tx SugaredReadTx) error) (err error) {
+func SugaredRead(db Database, f func(tx SugaredReadTx) error) (err error) {
 	rtx, err := db.BeginRead()
 	if err != nil {
 		return fmt.Errorf("while starting write transaction: %w", err)
@@ -186,7 +197,7 @@ func SugaredRead(db Bolted, f func(tx SugaredReadTx) error) (err error) {
 
 }
 
-func SugaredWrite(db Bolted, f func(tx SugaredWriteTx) error) (err error) {
+func SugaredWrite(db Database, f func(tx SugaredWriteTx) error) (err error) {
 	wtx, err := db.BeginWrite()
 	if err != nil {
 		return fmt.Errorf("while starting write transaction: %w", err)

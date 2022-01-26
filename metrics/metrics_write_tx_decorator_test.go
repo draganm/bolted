@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/embedded"
 	"github.com/draganm/bolted/metrics"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (database.Bolted, func()) {
+func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (bolted.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -74,7 +74,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+		err := bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 			return nil
 		})
 
@@ -95,7 +95,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+		err := bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 			return nil
 		})
 
@@ -115,7 +115,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := database.SugaredWrite(db, func(tx database.SugaredWriteTx) error {
+		err := bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
 			return errors.New("nope!")
 		})
 

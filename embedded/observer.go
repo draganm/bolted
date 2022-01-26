@@ -3,7 +3,7 @@ package embedded
 import (
 	"sync"
 
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 )
 
@@ -16,18 +16,18 @@ type observer struct {
 type receiver struct {
 	m dbpath.Matcher
 
-	eventsChan chan<- database.ObservedChanges
+	eventsChan chan<- bolted.ObservedChanges
 
-	event database.ObservedChanges
+	event bolted.ObservedChanges
 }
 
 func (r *receiver) reset() {
 	r.event = nil
 }
 
-func (r *receiver) handleEvent(path dbpath.Path, t database.ChangeType) {
+func (r *receiver) handleEvent(path dbpath.Path, t bolted.ChangeType) {
 
-	if t == database.ChangeTypeDeleted || r.m.Matches(path) {
+	if t == bolted.ChangeTypeDeleted || r.m.Matches(path) {
 		r.event = r.event.Update(path, t)
 	}
 
@@ -41,14 +41,14 @@ func (r *receiver) broadcast() {
 	r.event = nil
 }
 
-func newReceiver(m dbpath.Matcher) (*receiver, <-chan database.ObservedChanges) {
-	ch := make(chan database.ObservedChanges, 1)
-	ch <- database.ObservedChanges{}
+func newReceiver(m dbpath.Matcher) (*receiver, <-chan bolted.ObservedChanges) {
+	ch := make(chan bolted.ObservedChanges, 1)
+	ch <- bolted.ObservedChanges{}
 
-	incoming := make(chan database.ObservedChanges, 1)
+	incoming := make(chan bolted.ObservedChanges, 1)
 
 	go func() {
-		buffer := []database.ObservedChanges{}
+		buffer := []bolted.ObservedChanges{}
 
 		for {
 			if len(buffer) == 0 {
@@ -100,7 +100,7 @@ func newObserver() *observer {
 	}
 }
 
-func (w *observer) observe(m dbpath.Matcher) (<-chan database.ObservedChanges, func()) {
+func (w *observer) observe(m dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
 	w.mu.Lock()
 	observer, changesChan := newReceiver(m)
 	observerKey := w.nextObserverKey
@@ -129,7 +129,7 @@ func (w *observer) Opened(b *Bolted) error {
 	return nil
 }
 
-func (w *observer) Start(c database.WriteTx) error {
+func (w *observer) Start(c bolted.WriteTx) error {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.reset()
@@ -138,7 +138,7 @@ func (w *observer) Start(c database.WriteTx) error {
 	return nil
 }
 
-func (w *observer) updateObservers(path dbpath.Path, t database.ChangeType) {
+func (w *observer) updateObservers(path dbpath.Path, t bolted.ChangeType) {
 	w.mu.Lock()
 	for _, o := range w.observers {
 		o.handleEvent(path, t)
@@ -148,10 +148,10 @@ func (w *observer) updateObservers(path dbpath.Path, t database.ChangeType) {
 
 type txObserver struct {
 	o *observer
-	database.WriteTx
+	bolted.WriteTx
 }
 
-func (o *observer) writeTxDecorator(tx database.WriteTx) database.WriteTx {
+func (o *observer) writeTxDecorator(tx bolted.WriteTx) bolted.WriteTx {
 	return &txObserver{
 		o:       o,
 		WriteTx: tx,
@@ -164,7 +164,7 @@ func (to *txObserver) Delete(path dbpath.Path) error {
 		return err
 	}
 
-	to.o.updateObservers(path, database.ChangeTypeDeleted)
+	to.o.updateObservers(path, bolted.ChangeTypeDeleted)
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (to *txObserver) CreateMap(path dbpath.Path) error {
 	if err != nil {
 		return err
 	}
-	to.o.updateObservers(path, database.ChangeTypeMapCreated)
+	to.o.updateObservers(path, bolted.ChangeTypeMapCreated)
 	return nil
 }
 
@@ -182,7 +182,7 @@ func (to *txObserver) Put(path dbpath.Path, data []byte) error {
 	if err != nil {
 		return err
 	}
-	to.o.updateObservers(path, database.ChangeTypeValueSet)
+	to.o.updateObservers(path, bolted.ChangeTypeValueSet)
 	return nil
 }
 

@@ -2,9 +2,10 @@ package embedded
 
 import (
 	"fmt"
+	"io"
 	"os"
 
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 
 	bolt "go.etcd.io/bbolt"
@@ -18,25 +19,46 @@ type Bolted struct {
 
 const rootBucketName = "root"
 
-func Open(path string, mode os.FileMode, options ...Option) (database.Bolted, error) {
+type DumpableDatabase interface {
+	bolted.Database
+	Dump(io.Writer) (n int64, err error)
+}
+
+func Open(path string, mode os.FileMode, options ...Option) (DumpableDatabase, error) {
 	db, err := bolt.Open(path, mode, &bolt.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
 	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(rootBucketName))
-		if b == nil {
-			_, err := tx.CreateBucket([]byte(rootBucketName))
+	{
+		tx, err := db.Begin(false)
+		if err != nil {
+			return nil, fmt.Errorf("while opening read tx: %w", err)
+		}
+
+		rootExists := tx.Bucket([]byte(rootBucketName)) != nil
+
+		err = tx.Rollback()
+		if err != nil {
+			return nil, fmt.Errorf("while rolling back read transaction: %w", err)
+		}
+
+		if !rootExists {
+			err = db.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte(rootBucketName))
+				if b == nil {
+					_, err := tx.CreateBucket([]byte(rootBucketName))
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
 			if err != nil {
-				return err
+				return nil, fmt.Errorf("while creating root bucket: %w", err)
 			}
 		}
 
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("while creating root bucket: %w", err)
 	}
 
 	obs := newObserver()
@@ -66,7 +88,19 @@ func (b *Bolted) Close() error {
 	return nil
 }
 
-func (b *Bolted) BeginWrite() (database.WriteTx, error) {
+func (b *Bolted) Dump(w io.Writer) (n int64, err error) {
+	tx, err := b.db.Begin(false)
+	if err != nil {
+		return 0, fmt.Errorf("while starting dump tx: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	return tx.WriteTo(w)
+
+}
+
+func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
 	btx, err := b.db.Begin(true)
 	if err != nil {
 		return nil, fmt.Errorf("while starting transaction: %w", err)
@@ -77,7 +111,7 @@ func (b *Bolted) BeginWrite() (database.WriteTx, error) {
 		readOnly: false,
 	}
 
-	var realWriteTx database.WriteTx = wtx
+	var realWriteTx bolted.WriteTx = wtx
 
 	for _, d := range b.writeTxDecorators {
 		realWriteTx = d(realWriteTx)
@@ -100,11 +134,11 @@ func (b *Bolted) beginRead() (*writeTx, error) {
 	return wtx, nil
 }
 
-func (b *Bolted) BeginRead() (database.ReadTx, error) {
+func (b *Bolted) BeginRead() (bolted.ReadTx, error) {
 	return b.beginRead()
 }
 
-func (b *Bolted) Observe(path dbpath.Matcher) (<-chan database.ObservedChanges, func()) {
+func (b *Bolted) Observe(path dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
 	ev, cl := b.obs.observe(path)
 	return ev, cl
 }

@@ -4,27 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/draganm/bolted/database"
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 	bolt "go.etcd.io/bbolt"
 )
-
-type WriteTx interface {
-	CreateMap(path dbpath.Path) error
-	Delete(path dbpath.Path) error
-	Put(path dbpath.Path, value []byte) error
-	Rollback() error
-	ReadTx
-}
-
-type ReadTx interface {
-	Get(path dbpath.Path) ([]byte, error)
-	Iterator(path dbpath.Path) (Iterator, error)
-	Exists(path dbpath.Path) (bool, error)
-	IsMap(path dbpath.Path) (bool, error)
-	Size(path dbpath.Path) (uint64, error)
-	Finish() error
-}
 
 type writeTx struct {
 	btx        *bolt.Tx
@@ -140,7 +123,7 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 
 	b := bucket.Bucket(last)
 	if b == nil {
-		return ErrNotFound
+		return bolted.ErrNotFound
 	}
 
 	err = bucket.DeleteBucket(last)
@@ -162,7 +145,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 	}()
 
 	if len(path) == 0 {
-		return errors.New("root cannot be deleted")
+		return errors.New("value cannot be put as root")
 	}
 
 	var bucket = w.btx.Bucket([]byte(rootBucketName))
@@ -181,6 +164,11 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 	last := path[len(path)-1]
 
 	err = bucket.Put([]byte(last), value)
+
+	if err == bolt.ErrIncompatibleValue {
+		return bolted.ErrConflict
+	}
+
 	if err != nil {
 		return err
 	}
@@ -226,7 +214,11 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it database.Iterator, err error) {
+func (w *writeTx) ID() (uint64, error) {
+	return uint64(w.btx.ID()), nil
+}
+
+func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("Iterator(%s): %w", path.String(), err)

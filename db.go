@@ -1,12 +1,16 @@
-package database
+package bolted
 
-import "github.com/draganm/bolted/dbpath"
+import (
+	"errors"
 
-type Bolted interface {
+	"github.com/draganm/bolted/dbpath"
+)
+
+type Database interface {
 	BeginWrite() (WriteTx, error)
 	BeginRead() (ReadTx, error)
-	Close() error
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
+	Close() error
 }
 
 type WriteTx interface {
@@ -23,6 +27,7 @@ type ReadTx interface {
 	Exists(path dbpath.Path) (bool, error)
 	IsMap(path dbpath.Path) (bool, error)
 	Size(path dbpath.Path) (uint64, error)
+	ID() (uint64, error)
 	Finish() error
 }
 
@@ -35,4 +40,24 @@ type Iterator interface {
 	Seek(key string) error
 	First() error
 	Last() error
+}
+
+var ErrNotFound = errors.New("not found")
+
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, ErrNotFound)
+}
+
+var ErrConflict = errors.New("conflict")
+
+func IsConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, ErrConflict)
 }
