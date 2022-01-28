@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/draganm/bolted/replicated"
 	"github.com/minio/highwayhash"
@@ -36,12 +37,18 @@ func writeDataOrHash(d []byte) func(w *bufio.Writer) error {
 			return nil
 		}
 
-		hash, err := highwayhash.New(key)
+		hash, err := highwayhash.New128(key)
 		if err != nil {
 			return fmt.Errorf("failed to create HighwayHash instance: %w", err)
 		}
 
-		h := hash.Sum(d)
+		_, err = hash.Write(d)
+
+		if err != nil {
+			return fmt.Errorf("while writing to hash: %w", err)
+		}
+
+		h := hash.Sum(nil)
 
 		err = w.WriteByte(255)
 		if err != nil {
@@ -65,7 +72,7 @@ func verifyDataOrHash(r *bufio.Reader, data []byte) error {
 
 	if lenOrHashByte < 17 {
 		d := make([]byte, lenOrHashByte)
-		n, err := r.Read(d)
+		n, err := io.ReadFull(r, d)
 		if err != nil {
 			return fmt.Errorf("while reading short data: %w", err)
 		}
@@ -85,7 +92,8 @@ func verifyDataOrHash(r *bufio.Reader, data []byte) error {
 	}
 
 	hd := make([]byte, 16)
-	n, err := r.Read(hd)
+
+	n, err := io.ReadFull(r, hd)
 	if err != nil {
 		return fmt.Errorf("while reading hash: %w", err)
 	}
@@ -94,15 +102,20 @@ func verifyDataOrHash(r *bufio.Reader, data []byte) error {
 		return fmt.Errorf("could not read complete hash, expected 16 bytes, got %d", n)
 	}
 
-	hash, err := highwayhash.New(key)
+	hash, err := highwayhash.New128(key)
 	if err != nil {
 		return fmt.Errorf("failed to create HighwayHash instance: %w", err)
 	}
 
-	h := hash.Sum(data)
+	_, err = hash.Write(data)
+	if err != nil {
+		return fmt.Errorf("while writing to hash: %w", err)
+	}
+
+	h := hash.Sum(nil)
 
 	if !bytes.Equal(h, hd) {
-		return replicated.ErrStale
+		return fmt.Errorf("%s: expected hash %s, got %s", replicated.ErrStale, hex.EncodeToString(h), hex.EncodeToString(hd))
 	}
 
 	return nil

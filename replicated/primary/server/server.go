@@ -49,6 +49,9 @@ func (p *Server) pollForUpdates(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, fmt.Errorf("while parsing poll query parameter: %w", err).Error(), 400)
 		return
 	}
+
+	r.Header.Set("Content-Type", "application/octet-stream")
+
 	if poll > 0 {
 		ctx, cancel := context.WithTimeout(r.Context(), poll)
 		err = p.wal.CopyOrWait(ctx, from, rw)
@@ -64,6 +67,7 @@ func (p *Server) pollForUpdates(rw http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
+		return
 	}
 
 }

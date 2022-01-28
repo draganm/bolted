@@ -109,7 +109,8 @@ func (w *WAL) Close() error {
 
 var ErrConflict = errors.New("index conflict")
 
-func (w *WAL) Append(prevIndex uint64, r io.Reader) error {
+func (w *WAL) Append(prevIndex uint64, r io.Reader) (err error) {
+
 	w.mu.Lock()
 	if w.writing {
 		w.mu.Unlock()

@@ -100,15 +100,15 @@ func (r *replica) waitForTxID(lowest uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for r.lastTXID < lowest {
-		fmt.Println("waiting for", lowest, "current", r.lastTXID)
 		r.cond.Wait()
 	}
 }
 
-func (r *replica) sync(pollingPeriod time.Duration) error {
+func (r *replica) sync(pollingPeriod time.Duration) (err error) {
+
 	var lastTXID uint64
 
-	err := bolted.SugaredRead(r, func(tx bolted.SugaredReadTx) error {
+	err = bolted.SugaredRead(r, func(tx bolted.SugaredReadTx) error {
 		lastTXID = tx.ID()
 		return nil
 	})
@@ -129,9 +129,7 @@ func (r *replica) sync(pollingPeriod time.Duration) error {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		if err != nil {
-			return fmt.Errorf("while performing GET: %w", err)
-		}
+		return fmt.Errorf("while performing GET: %w", err)
 	}
 
 	defer res.Body.Close()
@@ -144,11 +142,11 @@ func (r *replica) sync(pollingPeriod time.Duration) error {
 		return fmt.Errorf("unexpected status: %s", res.Status)
 	}
 
+	br := bufio.NewReader(res.Body)
+
 	for ; ; lastTXID++ {
-		br := bufio.NewReader(res.Body)
 		txID, err := binary.ReadUvarint(br)
 		if err == io.EOF {
-			// all good, finish
 			return nil
 		}
 
@@ -168,6 +166,7 @@ func (r *replica) sync(pollingPeriod time.Duration) error {
 		txReader := io.LimitReader(br, int64(txLen))
 
 		_, err = txstream.Replay(txReader, r.Database)
+
 		if err != nil {
 			return fmt.Errorf("while replaying tx %d: %w", txID, err)
 		}
@@ -253,7 +252,9 @@ func (r *remoteWriteTx) Finish() error {
 		return fmt.Errorf("while writing tx total size")
 	}
 
-	req, err := http.NewRequest("POST", postURL.String(), io.MultiReader(header, r.buf))
+	txReader := io.MultiReader(header, r.buf)
+
+	req, err := http.NewRequest("POST", postURL.String(), txReader)
 	if err != nil {
 		return fmt.Errorf("while creating POST request: %w", err)
 	}
@@ -266,7 +267,7 @@ func (r *remoteWriteTx) Finish() error {
 	defer res.Body.Close()
 
 	if res.StatusCode == 409 {
-		return replicated.ErrStale
+		return fmt.Errorf("%w: %s", replicated.ErrStale, res.Status)
 	}
 
 	if res.StatusCode != 200 {

@@ -20,7 +20,7 @@ func readPath(r *bufio.Reader) (dbpath.Path, error) {
 
 	sb := make([]byte, ln)
 
-	n, err := r.Read(sb)
+	n, err := io.ReadFull(r, sb)
 	if err != nil {
 		return dbpath.NilPath, fmt.Errorf("while reading path: %w", err)
 	}
@@ -44,7 +44,7 @@ func readData(r *bufio.Reader) ([]byte, error) {
 
 	data := make([]byte, ln)
 
-	n, err := r.Read(data)
+	n, err := io.ReadFull(r, data)
 	if err != nil {
 		return nil, fmt.Errorf("while reading data: %w", err)
 	}
@@ -163,7 +163,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			if rex != (ex != 0) {
-				return 0, replicated.ErrStale
+				return 0, fmt.Errorf("%w: checking exists of %s", replicated.ErrStale, pth.String())
 			}
 
 		case isMap:
@@ -183,7 +183,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			if rism != (ism != 0) {
-				return 0, replicated.ErrStale
+				return 0, fmt.Errorf("%w: checking is map of %s", replicated.ErrStale, pth.String())
 			}
 		case get:
 			pth, err := readPath(br)
@@ -198,7 +198,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 
 			err = verifyDataOrHash(br, d)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("%w: while performing get %s", err, pth.String())
 			}
 		case size:
 			pth, err := readPath(br)
@@ -217,7 +217,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			if s != es {
-				return 0, replicated.ErrStale
+				return 0, fmt.Errorf("%w: checking size of %s", replicated.ErrStale, pth.String())
 			}
 		case newIterator:
 
@@ -251,7 +251,8 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			if id != (isd != 0) {
-				return 0, replicated.ErrStale
+				// return 0, replicated.ErrStale
+				return 0, fmt.Errorf("%w: checking iterator is done", replicated.ErrStale)
 			}
 
 		case iteratorNext:
@@ -284,7 +285,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			if k != string(sk) {
-				return 0, replicated.ErrStale
+				return 0, fmt.Errorf("%w: performing iterator get key", replicated.ErrStale)
 			}
 		case iteratorGetValue:
 
@@ -300,7 +301,7 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 
 			err = verifyDataOrHash(br, v)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("%w: while getting iteaotr value", err)
 			}
 
 		case iteratorFirst:
