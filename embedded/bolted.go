@@ -19,12 +19,7 @@ type Bolted struct {
 
 const rootBucketName = "root"
 
-type DumpableDatabase interface {
-	bolted.Database
-	Dump(io.Writer) (n int64, err error)
-}
-
-func Open(path string, mode os.FileMode, options ...Option) (DumpableDatabase, error) {
+func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 	db, err := bolt.Open(path, mode, &bolt.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
