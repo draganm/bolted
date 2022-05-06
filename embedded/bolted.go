@@ -95,6 +95,10 @@ func (b *Bolted) Dump(w io.Writer) (n int64, err error) {
 
 }
 
+func (b *Bolted) Stats() bolt.Stats {
+	return b.db.Stats()
+}
+
 func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
 	btx, err := b.db.Begin(true)
 	if err != nil {
