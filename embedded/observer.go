@@ -37,8 +37,13 @@ func (r *receiver) broadcast() {
 	if len(r.event) == 0 {
 		return
 	}
-	r.eventsChan <- r.event
+	select {
+	case r.eventsChan <- r.event:
+	default:
+		// would've blocked
+	}
 	r.event = nil
+
 }
 
 func newReceiver(m dbpath.Matcher) (*receiver, <-chan bolted.ObservedChanges) {
