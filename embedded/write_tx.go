@@ -271,7 +271,7 @@ func (w *writeTx) Exists(path dbpath.Path) (ex bool, err error) {
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return false, errors.New("one of the parent buckets does not exist")
+			return false, nil
 		}
 	}
 
