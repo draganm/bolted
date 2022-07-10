@@ -7,6 +7,7 @@ import (
 )
 
 type SugaredWriteTx interface {
+	GetRawWriteTX() WriteTx
 	CreateMap(path dbpath.Path)
 	Delete(path dbpath.Path)
 	Put(path dbpath.Path, value []byte)
@@ -14,6 +15,7 @@ type SugaredWriteTx interface {
 }
 
 type SugaredReadTx interface {
+	GetRawReadTX() ReadTx
 	Get(path dbpath.Path) []byte
 	Iterator(path dbpath.Path) SugaredIterator
 	Exists(path dbpath.Path) bool
@@ -37,9 +39,17 @@ type sugaredReadTx struct {
 	tx ReadTx
 }
 
+func (rt sugaredReadTx) GetRawReadTX() ReadTx {
+	return rt.tx
+}
+
 type sugaredWriteTx struct {
 	tx WriteTx
 	sugaredReadTx
+}
+
+func (rt sugaredWriteTx) GetRawWriteTX() WriteTx {
+	return rt.tx
 }
 
 func (st sugaredWriteTx) CreateMap(path dbpath.Path) {
