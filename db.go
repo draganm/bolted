@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/draganm/bolted/dbpath"
+	"go.etcd.io/bbolt"
 )
 
 type Database interface {
@@ -11,6 +12,7 @@ type Database interface {
 	BeginRead() (ReadTx, error)
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
 	Close() error
+	Stats() (*bbolt.Stats, error)
 }
 
 type WriteTx interface {

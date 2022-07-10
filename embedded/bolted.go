@@ -8,6 +8,7 @@ import (
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
 
+	"go.etcd.io/bbolt"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -95,8 +96,9 @@ func (b *Bolted) Dump(w io.Writer) (n int64, err error) {
 
 }
 
-func (b *Bolted) Stats() bolt.Stats {
-	return b.db.Stats()
+func (b *Bolted) Stats() (*bbolt.Stats, error) {
+	st := b.db.Stats()
+	return &st, nil
 }
 
 func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
