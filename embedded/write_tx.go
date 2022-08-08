@@ -6,13 +6,14 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	bolt "go.etcd.io/bbolt"
+	"go.etcd.io/bbolt"
 )
 
 type writeTx struct {
-	btx        *bolt.Tx
+	btx        *bbolt.Tx
 	readOnly   bool
 	rolledBack bool
+	rootBucket *bbolt.Bucket
 }
 
 func (w *writeTx) Finish() (err error) {
@@ -59,7 +60,7 @@ func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 		return errors.New("root map already exists")
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return errors.New("root bucket not found")
@@ -80,6 +81,8 @@ func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 		return err
 	}
 
+	bucket.NextSequence()
+
 	return nil
 
 }
@@ -96,7 +99,7 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 		return errors.New("root cannot be deleted")
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return errors.New("root bucket not found")
@@ -110,6 +113,18 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 	}
 
 	last := []byte(path[len(path)-1])
+
+	defer func() {
+		if err == nil {
+			size := bucket.Sequence()
+			if size == 0 {
+				err = errors.New("successful deletion from empty sequence - this should never happen")
+				return
+			}
+			size--
+			bucket.SetSequence(size)
+		}
+	}()
 
 	val := bucket.Get(last)
 	if val != nil {
@@ -148,7 +163,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 		return errors.New("value cannot be put as root")
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return errors.New("root bucket not found")
@@ -163,9 +178,17 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 
 	last := path[len(path)-1]
 
+	exists := bucket.Get([]byte(last)) != nil
+
+	defer func() {
+		if err == nil && !exists {
+			bucket.NextSequence()
+		}
+	}()
+
 	err = bucket.Put([]byte(last), value)
 
-	if err == bolt.ErrIncompatibleValue {
+	if err == bbolt.ErrIncompatibleValue {
 		return bolted.ErrConflict
 	}
 
@@ -189,7 +212,7 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 		return nil, errors.New("cannot get value of root")
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return nil, errors.New("root bucket not found")
@@ -225,7 +248,7 @@ func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
 		}
 	}()
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return nil, errors.New("root bucket not found")
@@ -262,7 +285,7 @@ func (w *writeTx) Exists(path dbpath.Path) (ex bool, err error) {
 		return true, nil
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return false, errors.New("root bucket not found")
@@ -300,7 +323,7 @@ func (w *writeTx) IsMap(path dbpath.Path) (ism bool, err error) {
 		return true, nil
 	}
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return false, errors.New("root bucket not found")
@@ -333,14 +356,14 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
 		}
 	}()
 
-	var bucket = w.btx.Bucket([]byte(rootBucketName))
+	var bucket = w.rootBucket
 
 	if bucket == nil {
 		return 0, errors.New("root bucket not found")
 	}
 
 	if len(path) == 0 {
-		return uint64(bucket.Stats().KeyN), nil
+		return bucket.Sequence(), nil
 	}
 
 	for _, p := range path[:len(path)-1] {
@@ -364,6 +387,6 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
 		return 0, errors.New("does not exist")
 	}
 
-	return uint64(bucket.Stats().KeyN), nil
+	return bucket.Sequence(), nil
 
 }

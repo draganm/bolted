@@ -392,3 +392,102 @@ func TestIterator(t *testing.T) {
 	})
 
 }
+
+func TestSize(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		tx           func(tx bolted.SugaredWriteTx) error
+		path         dbpath.Path
+		expectedSize uint64
+	}{
+		{
+			"empty root",
+			func(tx bolted.SugaredWriteTx) error {
+				return nil
+			},
+			dbpath.NilPath,
+			0,
+		},
+		{
+			"one map in root",
+			func(tx bolted.SugaredWriteTx) error {
+				tx.CreateMap(dbpath.ToPath("foo"))
+				return nil
+			},
+			dbpath.NilPath,
+			1,
+		},
+		{
+			"one value in root",
+			func(tx bolted.SugaredWriteTx) error {
+				tx.Put(dbpath.ToPath("foo"), []byte{})
+				return nil
+			},
+			dbpath.NilPath,
+			1,
+		},
+		{
+			"two values in root",
+			func(tx bolted.SugaredWriteTx) error {
+				tx.Put(dbpath.ToPath("foo"), []byte{})
+				tx.Put(dbpath.ToPath("bar"), []byte{})
+				return nil
+			},
+			dbpath.NilPath,
+			2,
+		},
+		{
+			"two maps in root",
+			func(tx bolted.SugaredWriteTx) error {
+				tx.CreateMap(dbpath.ToPath("foo"))
+				tx.CreateMap(dbpath.ToPath("bar"))
+				return nil
+			},
+			dbpath.NilPath,
+			2,
+		},
+		{
+			"nested maps in root",
+			func(tx bolted.SugaredWriteTx) error {
+				tx.CreateMap(dbpath.ToPath("foo"))
+				tx.CreateMap(dbpath.ToPath("foo", "bar"))
+				return nil
+			},
+			dbpath.NilPath,
+			1,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			db, cleanup := openEmptyDatabase(t)
+			defer cleanup()
+
+			var sz uint64
+			err := bolted.SugaredWrite(db, func(tx bolted.SugaredWriteTx) error {
+				err := tc.tx(tx)
+				if err != nil {
+					return err
+				}
+				sz = tx.Size(tc.path)
+				return nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedSize, sz)
+
+			err = bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
+				sz = tx.Size(tc.path)
+				return nil
+			})
+
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedSize, sz, "after read tx")
+
+		})
+	}
+
+}

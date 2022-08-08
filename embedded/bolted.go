@@ -107,9 +107,11 @@ func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
 		return nil, fmt.Errorf("while starting transaction: %w", err)
 	}
 
+	rootBucket := btx.Bucket([]byte(rootBucketName))
 	wtx := &writeTx{
-		btx:      btx,
-		readOnly: false,
+		btx:        btx,
+		readOnly:   false,
+		rootBucket: rootBucket,
 	}
 
 	var realWriteTx bolted.WriteTx = wtx
@@ -128,9 +130,11 @@ func (b *Bolted) beginRead() (*writeTx, error) {
 		return nil, fmt.Errorf("while starting transaction: %w", err)
 	}
 
+	rootBucket := btx.Bucket([]byte(rootBucketName))
 	wtx := &writeTx{
-		btx:      btx,
-		readOnly: true,
+		btx:        btx,
+		readOnly:   true,
+		rootBucket: rootBucket,
 	}
 	return wtx, nil
 }
