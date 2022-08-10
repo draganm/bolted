@@ -6,13 +6,13 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/embedded"
 	"github.com/stretchr/testify/require"
 )
 
 func TestObservePath(t *testing.T) {
 
-	db, cleanupDatabase := openEmptyDatabase(t)
-
+	db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{})
 	defer cleanupDatabase()
 
 	updates, close := db.Observe(dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())

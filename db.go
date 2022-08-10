@@ -19,6 +19,7 @@ type WriteTx interface {
 	CreateMap(path dbpath.Path) error
 	Delete(path dbpath.Path) error
 	Put(path dbpath.Path, value []byte) error
+	SetFillPercent(float64) error
 	Rollback() error
 	ReadTx
 }

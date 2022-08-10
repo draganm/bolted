@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -47,6 +48,10 @@ func WriteByte(b byte) func(w *bufio.Writer) error {
 	return func(w *bufio.Writer) error {
 		return w.WriteByte(b)
 	}
+}
+
+func WriteFloat64(f float64) func(w *bufio.Writer) error {
+	return writeVarUint64(math.Float64bits(f))
 }
 
 func writeBool(v bool) func(w *bufio.Writer) error {
@@ -469,5 +474,15 @@ func (i *iteratorWriter) Last() error {
 		i.log,
 		WriteByte(iteratorLast),
 		writeVarUint64(i.idx),
+	)
+}
+
+const SetFillPercent byte = 20
+
+func (w *Writer) SetFillPercent(fillPercent float64) error {
+	return WriteAll(
+		w.log,
+		WriteByte(SetFillPercent),
+		WriteFloat64(fillPercent),
 	)
 }
