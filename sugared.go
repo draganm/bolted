@@ -11,6 +11,7 @@ type SugaredWriteTx interface {
 	CreateMap(path dbpath.Path)
 	Delete(path dbpath.Path)
 	Put(path dbpath.Path, value []byte)
+	SetFillPercent(float64)
 	SugaredReadTx
 }
 
@@ -50,6 +51,13 @@ type sugaredWriteTx struct {
 
 func (rt sugaredWriteTx) GetRawWriteTX() WriteTx {
 	return rt.tx
+}
+
+func (st sugaredWriteTx) SetFillPercent(fillPercent float64) {
+	err := st.tx.SetFillPercent(fillPercent)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (st sugaredWriteTx) CreateMap(path dbpath.Path) {

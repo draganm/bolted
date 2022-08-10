@@ -10,10 +10,11 @@ import (
 )
 
 type writeTx struct {
-	btx        *bbolt.Tx
-	readOnly   bool
-	rolledBack bool
-	rootBucket *bbolt.Bucket
+	btx         *bbolt.Tx
+	readOnly    bool
+	rolledBack  bool
+	rootBucket  *bbolt.Bucket
+	fillPercent float64
 }
 
 func (w *writeTx) Finish() (err error) {
@@ -48,6 +49,18 @@ func (w *writeTx) Rollback() (err error) {
 	return nil
 }
 
+func (w *writeTx) SetFillPercent(fillPercent float64) error {
+	if fillPercent < 0.1 {
+		return errors.New("fill percent is too low")
+	}
+
+	if fillPercent > 1.0 {
+		return errors.New("fill percent is too high")
+	}
+	w.fillPercent = fillPercent
+	return nil
+}
+
 func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 
 	defer func() {
@@ -74,6 +87,8 @@ func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 	}
 
 	last := path[len(path)-1]
+
+	bucket.FillPercent = w.fillPercent
 
 	_, err = bucket.CreateBucket([]byte(last))
 
@@ -125,6 +140,8 @@ func (w *writeTx) Delete(path dbpath.Path) (err error) {
 			bucket.SetSequence(size)
 		}
 	}()
+
+	bucket.FillPercent = w.fillPercent
 
 	val := bucket.Get(last)
 	if val != nil {
@@ -185,6 +202,8 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 			bucket.NextSequence()
 		}
 	}()
+
+	bucket.FillPercent = w.fillPercent
 
 	err = bucket.Put([]byte(last), value)
 

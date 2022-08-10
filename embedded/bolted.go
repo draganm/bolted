@@ -108,9 +108,10 @@ func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
 
 	rootBucket := btx.Bucket([]byte(rootBucketName))
 	wtx := &writeTx{
-		btx:        btx,
-		readOnly:   false,
-		rootBucket: rootBucket,
+		btx:         btx,
+		readOnly:    false,
+		rootBucket:  rootBucket,
+		fillPercent: bbolt.DefaultFillPercent,
 	}
 
 	var realWriteTx bolted.WriteTx = wtx

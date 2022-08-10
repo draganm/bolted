@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -341,6 +342,17 @@ func Replay(r io.Reader, db bolted.Database) (txID uint64, err error) {
 			}
 
 			err = it.Seek(string(key))
+			if err != nil {
+				return 0, err
+			}
+
+		case SetFillPercent:
+			fpint, err := binary.ReadUvarint(br)
+			if err != nil {
+				return 0, fmt.Errorf("while reading fill percent: %w", err)
+			}
+			fillPercent := math.Float64frombits(fpint)
+			err = tx.SetFillPercent(fillPercent)
 			if err != nil {
 				return 0, err
 			}
