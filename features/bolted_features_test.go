@@ -30,7 +30,7 @@ var _ = steps.Then("the database is open", func(w *world.World) error {
 		return os.RemoveAll(td)
 	})
 
-	db, err := embedded.Open(filepath.Join(td, "db"), 0700)
+	db, err := embedded.Open(filepath.Join(td, "db"), 0700, embedded.Options{})
 	if err != nil {
 		return err
 	}

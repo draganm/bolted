@@ -63,7 +63,7 @@ func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 		cond:       cond,
 	}
 
-	embedded, err := embedded.Open(dbPath, 0700, embedded.WithWriteTxDecorators(func(tx bolted.WriteTx) bolted.WriteTx {
+	embedded, err := embedded.Open(dbPath, 0700, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{func(tx bolted.WriteTx) bolted.WriteTx {
 		return &writeTxNumberListener{tx, func(lastTXID uint64) {
 			r.mu.Lock()
 			r.lastTXID = lastTXID
@@ -71,7 +71,7 @@ func Open(ctx context.Context, primaryURL, dbPath string) (Replica, error) {
 			r.mu.Unlock()
 
 		}}
-	}))
+	}}})
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("while opening local embedded db: %w", err)

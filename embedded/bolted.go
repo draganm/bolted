@@ -9,19 +9,23 @@ import (
 	"github.com/draganm/bolted/dbpath"
 
 	"go.etcd.io/bbolt"
-	bolt "go.etcd.io/bbolt"
 )
 
 type Bolted struct {
-	db                *bolt.DB
+	db                *bbolt.DB
 	obs               *observer
 	writeTxDecorators []WriteTxDecorator
 }
 
+type Options struct {
+	bbolt.Options
+	WriteDecorators []WriteTxDecorator
+}
+
 const rootBucketName = "root"
 
-func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
-	db, err := bolt.Open(path, mode, &bolt.Options{})
+func Open(path string, mode os.FileMode, options Options) (*Bolted, error) {
+	db, err := bbolt.Open(path, mode, &options.Options)
 	if err != nil {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
 	}
@@ -40,7 +44,7 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 		}
 
 		if !rootExists {
-			err = db.Update(func(tx *bolt.Tx) error {
+			err = db.Update(func(tx *bbolt.Tx) error {
 				b := tx.Bucket([]byte(rootBucketName))
 				if b == nil {
 					_, err := tx.CreateBucket([]byte(rootBucketName))
@@ -65,12 +69,7 @@ func Open(path string, mode os.FileMode, options ...Option) (*Bolted, error) {
 		writeTxDecorators: []WriteTxDecorator{obs.writeTxDecorator},
 	}
 
-	for _, o := range options {
-		err = o(b)
-		if err != nil {
-			return nil, fmt.Errorf("while applying option: %w", err)
-		}
-	}
+	b.writeTxDecorators = append(b.writeTxDecorators, options.WriteDecorators...)
 
 	return b, nil
 

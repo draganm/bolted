@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (bolted.Database, func()) {
+func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -23,7 +23,7 @@ func openEmptyDatabase(t *testing.T, opts ...embedded.Option) (bolted.Database, 
 		require.NoError(t, err)
 	}
 
-	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts...)
+	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts)
 
 	require.NoError(t, err)
 
@@ -70,7 +70,7 @@ func findMetricWithName(t *testing.T, name string) *dto.Metric {
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 
@@ -91,7 +91,7 @@ func TestMetrics(t *testing.T) {
 
 	t.Run("number of successful transactions", func(t *testing.T) {
 
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 
@@ -111,7 +111,7 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.WithWriteTxDecorators(metrics.NewWriteTxDecorator(t.Name())))
+		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 

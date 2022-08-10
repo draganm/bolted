@@ -33,7 +33,7 @@ var _ = steps.Then("empty source and destination database", func(w *world.World)
 		return os.RemoveAll(td)
 	})
 
-	source, err := embedded.Open(filepath.Join(td, "source"), 0700)
+	source, err := embedded.Open(filepath.Join(td, "source"), 0700, embedded.Options{})
 	if err != nil {
 		return fmt.Errorf("while opening source db: %w", err)
 	}
@@ -43,7 +43,7 @@ var _ = steps.Then("empty source and destination database", func(w *world.World)
 
 	w.AddCleanup(source.Close)
 
-	destination, err := embedded.Open(filepath.Join(td, "destination"), 0700)
+	destination, err := embedded.Open(filepath.Join(td, "destination"), 0700, embedded.Options{})
 	if err != nil {
 		return fmt.Errorf("while opening destination db: %w", err)
 	}
