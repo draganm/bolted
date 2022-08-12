@@ -2,6 +2,7 @@ package bolted
 
 import (
 	"errors"
+	"io"
 
 	"github.com/draganm/bolted/dbpath"
 	"go.etcd.io/bbolt"
@@ -11,6 +12,7 @@ type Database interface {
 	BeginWrite() (WriteTx, error)
 	BeginRead() (ReadTx, error)
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
+	Dump(w io.Writer) (n int64, err error)
 	Close() error
 	Stats() (*bbolt.Stats, error)
 }
