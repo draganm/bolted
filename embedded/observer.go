@@ -8,41 +8,41 @@ import (
 )
 
 type observer struct {
-	mu              *sync.Mutex
-	observers       map[int]*receiver
-	nextObserverKey int
+	mu              *sync.RWMutex
+	receivers       map[int]*receiver
+	nextReceiverKey int
+}
+
+func (o *observer) broadcastChanges(changes bolted.ObservedChanges) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	for _, r := range o.receivers {
+		r.notify(changes)
+	}
 }
 
 type receiver struct {
 	m dbpath.Matcher
 
 	eventsChan chan<- bolted.ObservedChanges
-
-	event bolted.ObservedChanges
+	incoming   chan<- bolted.ObservedChanges
 }
 
-func (r *receiver) reset() {
-	r.event = nil
-}
+func (r *receiver) notify(changes bolted.ObservedChanges) {
 
-func (r *receiver) handleEvent(path dbpath.Path, t bolted.ChangeType) {
+	matchingChanges := bolted.ObservedChanges{}
 
-	if t == bolted.ChangeTypeDeleted || r.m.Matches(path) {
-		r.event = r.event.Update(path, t)
+	for _, ch := range changes {
+		if ch.Type == bolted.ChangeTypeDeleted || r.m.Matches(ch.Path) {
+			matchingChanges = matchingChanges.Update(ch.Path, ch.Type)
+		}
 	}
 
-}
-
-func (r *receiver) broadcast() {
-	if len(r.event) == 0 {
+	if len(matchingChanges) == 0 {
 		return
 	}
-	select {
-	case r.eventsChan <- r.event:
-	default:
-		// would've blocked
-	}
-	r.event = nil
+
+	r.incoming <- matchingChanges
 
 }
 
@@ -91,26 +91,27 @@ func newReceiver(m dbpath.Matcher) (*receiver, <-chan bolted.ObservedChanges) {
 	return &receiver{
 		m:          m,
 		eventsChan: ch,
+		incoming:   incoming,
 	}, ch
 }
 
 func (r *receiver) close() {
-	close(r.eventsChan)
+	close(r.incoming)
 }
 
 func newObserver() *observer {
 	return &observer{
-		mu:        new(sync.Mutex),
-		observers: make(map[int]*receiver),
+		mu:        new(sync.RWMutex),
+		receivers: make(map[int]*receiver),
 	}
 }
 
 func (w *observer) observe(m dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
 	w.mu.Lock()
-	observer, changesChan := newReceiver(m)
-	observerKey := w.nextObserverKey
-	w.observers[observerKey] = observer
-	w.nextObserverKey++
+	receiver, changesChan := newReceiver(m)
+	receiverKey := w.nextReceiverKey
+	w.receivers[receiverKey] = receiver
+	w.nextReceiverKey++
 	w.mu.Unlock()
 
 	closed := false
@@ -123,37 +124,17 @@ func (w *observer) observe(m dbpath.Matcher) (<-chan bolted.ObservedChanges, fun
 			return
 		}
 
-		delete(w.observers, observerKey)
-		observer.close()
+		delete(w.receivers, receiverKey)
+		receiver.close()
 		closed = true
 	}
 
 }
 
-func (w *observer) Opened(b *Bolted) error {
-	return nil
-}
-
-func (w *observer) Start(c bolted.WriteTx) error {
-	w.mu.Lock()
-	for _, o := range w.observers {
-		o.reset()
-	}
-	w.mu.Unlock()
-	return nil
-}
-
-func (w *observer) updateObservers(path dbpath.Path, t bolted.ChangeType) {
-	w.mu.Lock()
-	for _, o := range w.observers {
-		o.handleEvent(path, t)
-	}
-	w.mu.Unlock()
-}
-
 type txObserver struct {
 	o *observer
 	bolted.WriteTx
+	changes []bolted.ObservedChange
 }
 
 func (o *observer) writeTxDecorator(tx bolted.WriteTx) bolted.WriteTx {
@@ -169,7 +150,10 @@ func (to *txObserver) Delete(path dbpath.Path) error {
 		return err
 	}
 
-	to.o.updateObservers(path, bolted.ChangeTypeDeleted)
+	to.changes = append(to.changes, bolted.ObservedChange{
+		Path: path,
+		Type: bolted.ChangeTypeDeleted,
+	})
 	return nil
 }
 
@@ -178,7 +162,11 @@ func (to *txObserver) CreateMap(path dbpath.Path) error {
 	if err != nil {
 		return err
 	}
-	to.o.updateObservers(path, bolted.ChangeTypeMapCreated)
+
+	to.changes = append(to.changes, bolted.ObservedChange{
+		Path: path,
+		Type: bolted.ChangeTypeMapCreated,
+	})
 	return nil
 }
 
@@ -187,7 +175,12 @@ func (to *txObserver) Put(path dbpath.Path, data []byte) error {
 	if err != nil {
 		return err
 	}
-	to.o.updateObservers(path, bolted.ChangeTypeValueSet)
+
+	to.changes = append(to.changes, bolted.ObservedChange{
+		Path: path,
+		Type: bolted.ChangeTypeValueSet,
+	})
+
 	return nil
 }
 
@@ -197,14 +190,7 @@ func (to *txObserver) Finish() error {
 		return err
 	}
 
-	to.o.mu.Lock()
+	to.o.broadcastChanges(to.changes)
 
-	if err == nil {
-		for _, o := range to.o.observers {
-			o.broadcast()
-		}
-	}
-
-	to.o.mu.Unlock()
 	return nil
 }
