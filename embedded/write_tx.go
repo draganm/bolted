@@ -3,6 +3,7 @@ package embedded
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
@@ -408,4 +409,12 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
 
 	return bucket.Sequence(), nil
 
+}
+
+func (w *writeTx) Dump(wr io.Writer) (n int64, err error) {
+	return w.btx.WriteTo(wr)
+}
+
+func (w *writeTx) FileSize() (int64, error) {
+	return w.btx.Size(), nil
 }
