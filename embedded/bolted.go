@@ -2,7 +2,6 @@ package embedded
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/draganm/bolted"
@@ -81,18 +80,6 @@ func (b *Bolted) Close() error {
 		return err
 	}
 	return nil
-}
-
-func (b *Bolted) Dump(w io.Writer) (n int64, err error) {
-	tx, err := b.db.Begin(false)
-	if err != nil {
-		return 0, fmt.Errorf("while starting dump tx: %w", err)
-	}
-
-	defer tx.Rollback()
-
-	return tx.WriteTo(w)
-
 }
 
 func (b *Bolted) Stats() (*bbolt.Stats, error) {

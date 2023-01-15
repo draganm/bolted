@@ -12,7 +12,6 @@ type Database interface {
 	BeginWrite() (WriteTx, error)
 	BeginRead() (ReadTx, error)
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
-	Dump(w io.Writer) (n int64, err error)
 	Close() error
 	Stats() (*bbolt.Stats, error)
 }
@@ -34,6 +33,8 @@ type ReadTx interface {
 	Size(path dbpath.Path) (uint64, error)
 	ID() (uint64, error)
 	Finish() error
+	Dump(w io.Writer) (n int64, err error)
+	FileSize() (int64, error)
 }
 
 type Iterator interface {
