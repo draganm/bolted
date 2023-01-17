@@ -2,6 +2,7 @@ package bolted
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/draganm/bolted/dbpath"
 )
@@ -23,6 +24,8 @@ type SugaredReadTx interface {
 	IsMap(path dbpath.Path) bool
 	Size(path dbpath.Path) uint64
 	ID() uint64
+	Dump(w io.Writer) (n int64)
+	FileSize() int64
 }
 
 type SugaredIterator interface {
@@ -123,6 +126,22 @@ func (st sugaredReadTx) Exists(path dbpath.Path) bool {
 
 func (st sugaredReadTx) Size(path dbpath.Path) uint64 {
 	sz, err := st.tx.Size(path)
+	if err != nil {
+		panic(err)
+	}
+	return sz
+}
+
+func (st sugaredReadTx) Dump(w io.Writer) int64 {
+	n, err := st.tx.Dump(w)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+func (st sugaredReadTx) FileSize() int64 {
+	sz, err := st.tx.FileSize()
 	if err != nil {
 		panic(err)
 	}
