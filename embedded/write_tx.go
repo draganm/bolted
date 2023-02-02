@@ -253,7 +253,10 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 		return nil, errors.New("value not found")
 	}
 
-	return v, nil
+	copyOfValue := make([]byte, len(v))
+	copy(copyOfValue, v)
+
+	return copyOfValue, nil
 
 }
 
@@ -284,10 +287,13 @@ func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
 	c := bucket.Cursor()
 	k, v := c.First()
 
+	copyOfValue := make([]byte, len(v))
+	copy(copyOfValue, v)
+
 	return &iterator{
 		c:     c,
 		key:   string(k),
-		value: v,
+		value: copyOfValue,
 		done:  k == nil,
 	}, nil
 }
