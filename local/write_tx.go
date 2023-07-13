@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/dbt"
 	"go.etcd.io/bbolt"
 )
 
@@ -110,7 +110,7 @@ func (w *writeTx) Delete(path dbpath.Path) {
 
 	b := bucket.Bucket(last)
 	if b == nil {
-		raiseErrorForPath(path, "Delete", bolted.ErrNotFound)
+		raiseErrorForPath(path, "Delete", dbt.ErrNotFound)
 	}
 
 	err := bucket.DeleteBucket(last)
@@ -151,7 +151,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) {
 	err := bucket.Put([]byte(last), value)
 
 	if err == bbolt.ErrIncompatibleValue {
-		raiseErrorForPath(path, "Put", bolted.ErrConflict)
+		raiseErrorForPath(path, "Put", dbt.ErrConflict)
 	}
 
 	if err != nil {
@@ -202,7 +202,7 @@ func (w *writeTx) ID() uint64 {
 	return uint64(w.btx.ID())
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator) {
+func (w *writeTx) Iterator(path dbpath.Path) (it dbt.Iterator) {
 
 	var bucket = w.rootBucket
 

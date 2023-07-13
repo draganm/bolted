@@ -1,4 +1,4 @@
-package bolted
+package dbt
 
 import (
 	"errors"

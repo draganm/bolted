@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/dbt"
 	"github.com/draganm/bolted/local"
 	"github.com/urfave/cli/v2"
 	"go.etcd.io/bbolt"
@@ -51,7 +51,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return db.Read(func(tx bolted.ReadTx) error {
+		return db.Read(func(tx dbt.ReadTx) error {
 			for it := tx.Iterator(dbp); !it.IsDone(); it.Next() {
 
 				suffix := ""

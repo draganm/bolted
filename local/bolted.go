@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/dbt"
 
 	"go.etcd.io/bbolt"
 )
 
-type Bolted struct {
+type LocalDB struct {
 	db                *bbolt.DB
 	obs               *observer
 	writeTxDecorators []WriteTxDecorator
@@ -23,7 +23,7 @@ type Options struct {
 
 const rootBucketName = "root"
 
-func Open(path string, mode os.FileMode, options Options) (*Bolted, error) {
+func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 	db, err := bbolt.Open(path, mode, &options.Options)
 	if err != nil {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
@@ -62,7 +62,7 @@ func Open(path string, mode os.FileMode, options Options) (*Bolted, error) {
 
 	obs := newObserver()
 
-	b := &Bolted{
+	b := &LocalDB{
 		db:                db,
 		obs:               obs,
 		writeTxDecorators: []WriteTxDecorator{obs.writeTxDecorator},
@@ -74,7 +74,7 @@ func Open(path string, mode os.FileMode, options Options) (*Bolted, error) {
 
 }
 
-func (b *Bolted) Close() error {
+func (b *LocalDB) Close() error {
 	err := b.db.Close()
 	if err != nil {
 		return err
@@ -82,12 +82,12 @@ func (b *Bolted) Close() error {
 	return nil
 }
 
-func (b *Bolted) Stats() (*bbolt.Stats, error) {
+func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 	st := b.db.Stats()
 	return &st, nil
 }
 
-func (b *Bolted) Write(fn func(tx bolted.WriteTx) error) error {
+func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) error {
 	return b.db.Update(func(btx *bbolt.Tx) (err error) {
 
 		defer func() {
@@ -115,9 +115,9 @@ func (b *Bolted) Write(fn func(tx bolted.WriteTx) error) error {
 			fillPercent: bbolt.DefaultFillPercent,
 		}
 
-		var realWriteTx bolted.WriteTx = wtx
+		var realWriteTx dbt.WriteTx = wtx
 
-		wrappers := []bolted.WriteTx{realWriteTx}
+		wrappers := []dbt.WriteTx{realWriteTx}
 
 		for _, d := range b.writeTxDecorators {
 			realWriteTx = d(realWriteTx)
@@ -137,7 +137,7 @@ func (b *Bolted) Write(fn func(tx bolted.WriteTx) error) error {
 	})
 }
 
-func (b *Bolted) Read(fn func(tx bolted.ReadTx) error) error {
+func (b *LocalDB) Read(fn func(tx dbt.ReadTx) error) error {
 	return b.db.View(func(btx *bbolt.Tx) (err error) {
 
 		defer func() {
@@ -167,7 +167,7 @@ func (b *Bolted) Read(fn func(tx bolted.ReadTx) error) error {
 	})
 }
 
-func (b *Bolted) Observe(path dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
+func (b *LocalDB) Observe(path dbpath.Matcher) (<-chan dbt.ObservedChanges, func()) {
 	ev, cl := b.obs.observe(path)
 	return ev, cl
 }

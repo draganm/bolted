@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted"
+	"github.com/draganm/bolted/dbt"
 	"github.com/draganm/bolted/local"
 	"github.com/draganm/bolted/metrics"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts local.Options) (bolted.Database, func()) {
+func openEmptyDatabase(t *testing.T, opts local.Options) (dbt.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -74,7 +74,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx dbt.WriteTx) error {
 			return nil
 		})
 
@@ -95,7 +95,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx dbt.WriteTx) error {
 			return nil
 		})
 
@@ -115,7 +115,7 @@ func TestMetrics(t *testing.T) {
 
 		defer cleanupDatabase()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := db.Write(func(tx dbt.WriteTx) error {
 			return errors.New("nope!")
 		})
 

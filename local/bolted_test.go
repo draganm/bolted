@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/dbt"
 	"github.com/draganm/bolted/local"
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts local.Options) (bolted.Database, func()) {
+func openEmptyDatabase(t *testing.T, opts local.Options) (dbt.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -20,16 +20,16 @@ func openEmptyDatabase(t *testing.T, opts local.Options) (bolted.Database, func(
 		require.NoError(t, err)
 	}
 
-	db, err := local.Open(filepath.Join(td, "db"), 0660, opts)
+	bdb, err := local.Open(filepath.Join(td, "db"), 0660, opts)
 
 	require.NoError(t, err)
 
 	closeDatabase := func() {
-		err = db.Close()
+		err = bdb.Close()
 		require.NoError(t, err)
 	}
 
-	return db, func() {
+	return bdb, func() {
 		closeDatabase()
 		removeTempDir()
 	}
@@ -44,9 +44,9 @@ func TestOpen(t *testing.T) {
 func TestCreateMap(t *testing.T) {
 
 	t.Run("create map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -54,16 +54,16 @@ func TestCreateMap(t *testing.T) {
 	})
 
 	t.Run("create map twice", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
@@ -72,22 +72,22 @@ func TestCreateMap(t *testing.T) {
 	})
 
 	t.Run("create map nested", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -105,27 +105,27 @@ func TestCreateMap(t *testing.T) {
 func TestDelete(t *testing.T) {
 
 	t.Run("delete not existing map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
-		require.True(t, bolted.IsNotFound(err))
+		require.True(t, dbt.IsNotFound(err))
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -133,17 +133,17 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete parent map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -151,17 +151,17 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete child map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.CreateMap(dbpath.ToPath("test", "foo"))
 			return nil
 		})
 
 		require.NoError(t, err)
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Delete(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -169,16 +169,16 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete value", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Write(func(tx bolted.WriteTx) error {
+		err = bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Delete(dbpath.ToPath("test"))
 			return nil
 		})
@@ -190,10 +190,10 @@ func TestDelete(t *testing.T) {
 func TestPutAndGet(t *testing.T) {
 
 	t.Run("put and get to root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
@@ -201,7 +201,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			val = tx.Get(dbpath.ToPath("test"))
 			return nil
 		})
@@ -213,10 +213,10 @@ func TestPutAndGet(t *testing.T) {
 	})
 
 	t.Run("put and get to map root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
 			tx.Put(dbpath.ToPath("test", "foo"), []byte{1, 2, 3})
 			return nil
@@ -225,7 +225,7 @@ func TestPutAndGet(t *testing.T) {
 
 		var val []byte
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			val = tx.Get(dbpath.ToPath("test", "foo"))
 			return nil
 		})
@@ -234,7 +234,7 @@ func TestPutAndGet(t *testing.T) {
 
 		require.Equal(t, []byte{1, 2, 3}, val)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			ex := tx.Exists(dbpath.ToPath("test"))
 			require.True(t, ex)
 
@@ -265,10 +265,10 @@ func TestPutAndGet(t *testing.T) {
 func TestIterator(t *testing.T) {
 
 	t.Run("iterating empty root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.True(t, it.IsDone())
 			return nil
@@ -278,16 +278,16 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with one value", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Put(dbpath.ToPath("test"), []byte{1, 2, 3})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 			require.False(t, it.IsDone())
 
@@ -304,17 +304,17 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with two values", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			return nil
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
@@ -350,10 +350,10 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with two values and a bucket", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, local.Options{})
+		bdb, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
-		err := db.Write(func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx dbt.WriteTx) error {
 			tx.Put(dbpath.ToPath("test1"), []byte{1, 2, 3})
 			tx.Put(dbpath.ToPath("test2"), []byte{2, 3, 4})
 			tx.CreateMap(dbpath.ToPath("test3"))
@@ -362,7 +362,7 @@ func TestIterator(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.Read(func(tx bolted.ReadTx) error {
+		err = bdb.Read(func(tx dbt.ReadTx) error {
 			it := tx.Iterator(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
@@ -397,13 +397,13 @@ func TestSize(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		tx           func(tx bolted.WriteTx) error
+		tx           func(tx dbt.WriteTx) error
 		path         dbpath.Path
 		expectedSize uint64
 	}{
 		{
 			"empty root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				return nil
 			},
 			dbpath.NilPath,
@@ -411,7 +411,7 @@ func TestSize(t *testing.T) {
 		},
 		{
 			"one map in root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				tx.CreateMap(dbpath.ToPath("foo"))
 				return nil
 			},
@@ -420,7 +420,7 @@ func TestSize(t *testing.T) {
 		},
 		{
 			"one value in root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				tx.Put(dbpath.ToPath("foo"), []byte{})
 				return nil
 			},
@@ -429,7 +429,7 @@ func TestSize(t *testing.T) {
 		},
 		{
 			"two values in root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				tx.Put(dbpath.ToPath("foo"), []byte{})
 				tx.Put(dbpath.ToPath("bar"), []byte{})
 				return nil
@@ -439,7 +439,7 @@ func TestSize(t *testing.T) {
 		},
 		{
 			"two maps in root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				tx.CreateMap(dbpath.ToPath("foo"))
 				tx.CreateMap(dbpath.ToPath("bar"))
 				return nil
@@ -449,7 +449,7 @@ func TestSize(t *testing.T) {
 		},
 		{
 			"nested maps in root",
-			func(tx bolted.WriteTx) error {
+			func(tx dbt.WriteTx) error {
 				tx.CreateMap(dbpath.ToPath("foo"))
 				tx.CreateMap(dbpath.ToPath("foo", "bar"))
 				return nil
@@ -463,11 +463,11 @@ func TestSize(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			db, cleanup := openEmptyDatabase(t, local.Options{})
+			bdb, cleanup := openEmptyDatabase(t, local.Options{})
 			defer cleanup()
 
 			var sz uint64
-			err := db.Write(func(tx bolted.WriteTx) error {
+			err := bdb.Write(func(tx dbt.WriteTx) error {
 				err := tc.tx(tx)
 				if err != nil {
 					return err
@@ -478,7 +478,7 @@ func TestSize(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedSize, sz)
 
-			err = db.Read(func(tx bolted.ReadTx) error {
+			err = bdb.Read(func(tx dbt.ReadTx) error {
 				sz = tx.Size(tc.path)
 				return nil
 			})

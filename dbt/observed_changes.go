@@ -1,4 +1,4 @@
-package bolted
+package dbt
 
 import "github.com/draganm/bolted/dbpath"
 
