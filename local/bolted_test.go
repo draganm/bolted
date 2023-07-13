@@ -1,4 +1,4 @@
-package embedded_test
+package local_test
 
 import (
 	"io/ioutil"
@@ -8,11 +8,11 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/embedded"
+	"github.com/draganm/bolted/local"
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, func()) {
+func openEmptyDatabase(t *testing.T, opts local.Options) (bolted.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -20,7 +20,7 @@ func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, fu
 		require.NoError(t, err)
 	}
 
-	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts)
+	db, err := local.Open(filepath.Join(td, "db"), 0660, opts)
 
 	require.NoError(t, err)
 
@@ -37,14 +37,14 @@ func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, fu
 }
 
 func TestOpen(t *testing.T) {
-	_, cleanup := openEmptyDatabase(t, embedded.Options{})
+	_, cleanup := openEmptyDatabase(t, local.Options{})
 	defer cleanup()
 }
 
 func TestCreateMap(t *testing.T) {
 
 	t.Run("create map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 		err := db.Write(func(tx bolted.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("test"))
@@ -54,7 +54,7 @@ func TestCreateMap(t *testing.T) {
 	})
 
 	t.Run("create map twice", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -72,7 +72,7 @@ func TestCreateMap(t *testing.T) {
 	})
 
 	t.Run("create map nested", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -105,7 +105,7 @@ func TestCreateMap(t *testing.T) {
 func TestDelete(t *testing.T) {
 
 	t.Run("delete not existing map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -116,7 +116,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete existing map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -133,7 +133,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete parent map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -151,7 +151,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete child map", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -169,7 +169,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("delete value", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -190,7 +190,7 @@ func TestDelete(t *testing.T) {
 func TestPutAndGet(t *testing.T) {
 
 	t.Run("put and get to root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -213,7 +213,7 @@ func TestPutAndGet(t *testing.T) {
 	})
 
 	t.Run("put and get to map root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -265,7 +265,7 @@ func TestPutAndGet(t *testing.T) {
 func TestIterator(t *testing.T) {
 
 	t.Run("iterating empty root", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -278,7 +278,7 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with one value", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -304,7 +304,7 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with two values", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -350,7 +350,7 @@ func TestIterator(t *testing.T) {
 	})
 
 	t.Run("iterating root with two values and a bucket", func(t *testing.T) {
-		db, cleanup := openEmptyDatabase(t, embedded.Options{})
+		db, cleanup := openEmptyDatabase(t, local.Options{})
 		defer cleanup()
 
 		err := db.Write(func(tx bolted.WriteTx) error {
@@ -463,7 +463,7 @@ func TestSize(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			db, cleanup := openEmptyDatabase(t, embedded.Options{})
+			db, cleanup := openEmptyDatabase(t, local.Options{})
 			defer cleanup()
 
 			var sz uint64

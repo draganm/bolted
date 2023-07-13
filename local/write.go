@@ -1,4 +1,4 @@
-package embedded
+package local
 
 import (
 	bolt "go.etcd.io/bbolt"

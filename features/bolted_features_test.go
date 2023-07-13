@@ -8,7 +8,7 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/embedded"
+	"github.com/draganm/bolted/local"
 	"github.com/draganm/senfgurke/step"
 	"github.com/draganm/senfgurke/testrunner"
 	"github.com/draganm/senfgurke/world"
@@ -30,7 +30,7 @@ var _ = steps.Then("the database is open", func(w *world.World) error {
 		return os.RemoveAll(td)
 	})
 
-	db, err := embedded.Open(filepath.Join(td, "db"), 0700, embedded.Options{})
+	db, err := local.Open(filepath.Join(td, "db"), 0700, local.Options{})
 	if err != nil {
 		return err
 	}

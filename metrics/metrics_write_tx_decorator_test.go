@@ -8,14 +8,14 @@ import (
 	"testing"
 
 	"github.com/draganm/bolted"
-	"github.com/draganm/bolted/embedded"
+	"github.com/draganm/bolted/local"
 	"github.com/draganm/bolted/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
 
-func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, func()) {
+func openEmptyDatabase(t *testing.T, opts local.Options) (bolted.Database, func()) {
 	td, err := ioutil.TempDir("", "")
 	require.NoError(t, err)
 	removeTempDir := func() {
@@ -23,7 +23,7 @@ func openEmptyDatabase(t *testing.T, opts embedded.Options) (bolted.Database, fu
 		require.NoError(t, err)
 	}
 
-	db, err := embedded.Open(filepath.Join(td, "db"), 0660, opts)
+	db, err := local.Open(filepath.Join(td, "db"), 0660, opts)
 
 	require.NoError(t, err)
 
@@ -70,7 +70,7 @@ func findMetricWithName(t *testing.T, name string) *dto.Metric {
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 
@@ -91,7 +91,7 @@ func TestMetrics(t *testing.T) {
 
 	t.Run("number of successful transactions", func(t *testing.T) {
 
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 
@@ -111,7 +111,7 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, embedded.Options{WriteDecorators: []embedded.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
 
 		defer cleanupDatabase()
 

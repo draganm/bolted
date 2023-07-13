@@ -7,7 +7,7 @@ import (
 
 	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/embedded"
+	"github.com/draganm/bolted/local"
 	"github.com/urfave/cli/v2"
 	"go.etcd.io/bbolt"
 )
@@ -36,7 +36,7 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("while parsing path %s: %w", p, err)
 		}
-		db, err := embedded.Open(sourceFile, 0700, embedded.Options{
+		db, err := local.Open(sourceFile, 0700, local.Options{
 			Options: bbolt.Options{
 				Timeout:  c.Duration("open-timeout"),
 				ReadOnly: true,

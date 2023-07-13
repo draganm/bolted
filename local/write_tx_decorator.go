@@ -1,4 +1,4 @@
-package embedded
+package local
 
 import "github.com/draganm/bolted"
 
