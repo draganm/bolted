@@ -52,7 +52,7 @@ var Command = &cli.Command{
 		}
 
 		return db.Read(func(tx dbt.ReadTx) error {
-			for it := tx.Iterator(dbp); !it.IsDone(); it.Next() {
+			for it := tx.Iterate(dbp); !it.IsDone(); it.Next() {
 
 				suffix := ""
 				if it.GetValue() == nil {

@@ -210,7 +210,7 @@ func (w *writeTx) ID() uint64 {
 	return uint64(w.btx.ID())
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it dbt.Iterator) {
+func (w *writeTx) Iterate(path dbpath.Path) (it dbt.Iterator) {
 
 	var bucket = w.rootBucket
 

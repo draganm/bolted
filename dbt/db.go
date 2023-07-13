@@ -27,13 +27,13 @@ type WriteTx interface {
 
 type ReadTx interface {
 	Get(path dbpath.Path) []byte
-	Iterator(path dbpath.Path) Iterator
+	Iterate(path dbpath.Path) Iterator
 	Exists(path dbpath.Path) bool
 	IsMap(path dbpath.Path) bool
 	Size(path dbpath.Path) uint64
 	ID() uint64
 	Dump(w io.Writer) (n int64)
-	FileSize() int64
+	DBFileSize() int64
 }
 
 type Iterator interface {

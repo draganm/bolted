@@ -269,7 +269,7 @@ func TestIterator(t *testing.T) {
 		defer cleanup()
 
 		err := bdb.Write(func(tx dbt.WriteTx) error {
-			it := tx.Iterator(dbpath.NilPath)
+			it := tx.Iterate(dbpath.NilPath)
 			require.True(t, it.IsDone())
 			return nil
 		})
@@ -288,7 +288,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = bdb.Read(func(tx dbt.ReadTx) error {
-			it := tx.Iterator(dbpath.NilPath)
+			it := tx.Iterate(dbpath.NilPath)
 			require.False(t, it.IsDone())
 
 			require.Equal(t, "test", it.GetKey())
@@ -315,7 +315,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = bdb.Read(func(tx dbt.ReadTx) error {
-			it := tx.Iterator(dbpath.NilPath)
+			it := tx.Iterate(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
 			require.Equal(t, "test1", it.GetKey())
@@ -363,7 +363,7 @@ func TestIterator(t *testing.T) {
 		require.NoError(t, err)
 
 		err = bdb.Read(func(tx dbt.ReadTx) error {
-			it := tx.Iterator(dbpath.NilPath)
+			it := tx.Iterate(dbpath.NilPath)
 
 			require.False(t, it.IsDone())
 			require.Equal(t, "test1", it.GetKey())
