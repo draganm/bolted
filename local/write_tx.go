@@ -348,6 +348,6 @@ func (w *writeTx) Dump(wr io.Writer) (n int64) {
 	return n
 }
 
-func (w *writeTx) FileSize() int64 {
+func (w *writeTx) DBFileSize() int64 {
 	return w.btx.Size()
 }
