@@ -64,7 +64,7 @@ var _ = steps.Then("the map {string} should exist", func(w *world.World, mapName
 var _ = steps.Then("the map {string} should be empty", func(w *world.World, mapName string) error {
 	db := getDB(w)
 	return db.Read(func(tx dbt.ReadTx) error {
-		w.Assert.Equal(uint64(0), tx.Size(dbpath.ToPath(mapName)))
+		w.Assert.Equal(uint64(0), tx.GetSizeOf(dbpath.ToPath(mapName)))
 		return nil
 	})
 })
@@ -96,7 +96,7 @@ var _ = steps.Then("the map {string} should not exist", func(w *world.World, map
 var _ = steps.Then("the root should have {int} element", func(w *world.World, expected int) error {
 	db := getDB(w)
 	return db.Read(func(tx dbt.ReadTx) error {
-		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
+		w.Assert.Equal(uint64(expected), tx.GetSizeOf(dbpath.NilPath))
 		return nil
 	})
 })
@@ -104,7 +104,7 @@ var _ = steps.Then("the root should have {int} element", func(w *world.World, ex
 var _ = steps.Then("the root should have {int} elements", func(w *world.World, expected int) error {
 	db := getDB(w)
 	return db.Read(func(tx dbt.ReadTx) error {
-		w.Assert.Equal(uint64(expected), tx.Size(dbpath.NilPath))
+		w.Assert.Equal(uint64(expected), tx.GetSizeOf(dbpath.NilPath))
 		return nil
 	})
 })

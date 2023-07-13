@@ -241,7 +241,7 @@ func TestPutAndGet(t *testing.T) {
 			isMap := tx.IsMap(dbpath.ToPath("test"))
 			require.True(t, isMap)
 
-			cnt := tx.Size(dbpath.ToPath("test"))
+			cnt := tx.GetSizeOf(dbpath.ToPath("test"))
 			require.Equal(t, uint64(1), cnt)
 
 			ex = tx.Exists(dbpath.ToPath("test", "foo"))
@@ -250,7 +250,7 @@ func TestPutAndGet(t *testing.T) {
 			isMap = tx.IsMap(dbpath.ToPath("test", "foo"))
 			require.False(t, isMap)
 
-			cnt = tx.Size(dbpath.ToPath("test", "foo"))
+			cnt = tx.GetSizeOf(dbpath.ToPath("test", "foo"))
 			require.Equal(t, uint64(3), cnt)
 
 			return err
@@ -472,14 +472,14 @@ func TestSize(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				sz = tx.Size(tc.path)
+				sz = tx.GetSizeOf(tc.path)
 				return nil
 			})
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedSize, sz)
 
 			err = bdb.Read(func(tx dbt.ReadTx) error {
-				sz = tx.Size(tc.path)
+				sz = tx.GetSizeOf(tc.path)
 				return nil
 			})
 

@@ -215,13 +215,13 @@ func (w *writeTx) Iterate(path dbpath.Path) (it dbt.Iterator) {
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		raiseErrorForPath(path, "Iterator", errors.New("root bucket not found"))
+		raiseErrorForPath(path, "Iterate", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			raiseErrorForPath(path, "Iterator", errors.New("one of the parent buckets does not exist"))
+			raiseErrorForPath(path, "Iterate", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -303,12 +303,12 @@ func (w *writeTx) IsMap(path dbpath.Path) (ism bool) {
 
 }
 
-func (w *writeTx) Size(path dbpath.Path) (s uint64) {
+func (w *writeTx) GetSizeOf(path dbpath.Path) (s uint64) {
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		raiseErrorForPath(path, "Size", errors.New("root bucket not found"))
+		raiseErrorForPath(path, "GetSizeOf", errors.New("root bucket not found"))
 	}
 
 	if len(path) == 0 {
@@ -318,7 +318,7 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64) {
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			raiseErrorForPath(path, "Size", errors.New("one of the parent buckets does not exist"))
+			raiseErrorForPath(path, "GetSizeOf", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -333,7 +333,7 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64) {
 	bucket = bucket.Bucket([]byte(last))
 
 	if bucket == nil {
-		raiseErrorForPath(path, "Size", errors.New("does not exist"))
+		raiseErrorForPath(path, "GetSizeOf", errors.New("does not exist"))
 	}
 
 	return bucket.Sequence()

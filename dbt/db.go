@@ -30,7 +30,7 @@ type ReadTx interface {
 	Iterate(path dbpath.Path) Iterator
 	Exists(path dbpath.Path) bool
 	IsMap(path dbpath.Path) bool
-	Size(path dbpath.Path) uint64
+	GetSizeOf(path dbpath.Path) uint64
 	ID() uint64
 	Dump(w io.Writer) (n int64)
 	DBFileSize() int64
