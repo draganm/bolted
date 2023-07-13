@@ -2,7 +2,7 @@ let pkgs = import <nixpkgs> { }; in
 pkgs.mkShell {
   packages = [
     pkgs.gcc
-    pkgs.go_1_18
+    pkgs.go_1_20
     pkgs.gotools
     pkgs.gopls
     pkgs.go-outline

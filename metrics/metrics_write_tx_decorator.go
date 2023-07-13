@@ -57,37 +57,18 @@ func init() {
 	)
 }
 
-func (l *metricsTXWriter) Finish() error {
-	err := l.WriteTx.Finish()
-	if err != nil {
-		cnt, e := numberOfFailedTransactionsVec.GetMetricWithLabelValues(l.dbName)
-		if e == nil {
-			cnt.Inc()
-		}
-		return err
-	}
+func (l *metricsTXWriter) OnCommit() {
 
-	if l.failed {
-		cnt, e := numberOfFailedTransactionsVec.GetMetricWithLabelValues(l.dbName)
-		if e == nil {
-			cnt.Inc()
-		}
-	} else {
-		cnt, e := numberOfSuccessfulWriteTransactionsVec.GetMetricWithLabelValues(l.dbName)
-		if e == nil {
-			cnt.Inc()
-		}
+	cnt, e := numberOfSuccessfulWriteTransactionsVec.GetMetricWithLabelValues(l.dbName)
+	if e == nil {
+		cnt.Inc()
 	}
-
-	return nil
 
 }
 
-func (l *metricsTXWriter) Rollback() error {
-	err := l.WriteTx.Rollback()
-
-	l.failed = true
-
-	return err
-
+func (l *metricsTXWriter) OnRollback(err error) {
+	cnt, e := numberOfFailedTransactionsVec.GetMetricWithLabelValues(l.dbName)
+	if e == nil {
+		cnt.Inc()
+	}
 }

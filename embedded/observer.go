@@ -144,53 +144,37 @@ func (o *observer) writeTxDecorator(tx bolted.WriteTx) bolted.WriteTx {
 	}
 }
 
-func (to *txObserver) Delete(path dbpath.Path) error {
-	err := to.WriteTx.Delete(path)
-	if err != nil {
-		return err
-	}
+func (to *txObserver) Delete(path dbpath.Path) {
+	to.WriteTx.Delete(path)
 
 	to.changes = append(to.changes, bolted.ObservedChange{
 		Path: path,
 		Type: bolted.ChangeTypeDeleted,
 	})
-	return nil
 }
 
-func (to *txObserver) CreateMap(path dbpath.Path) error {
-	err := to.WriteTx.CreateMap(path)
-	if err != nil {
-		return err
-	}
+func (to *txObserver) CreateMap(path dbpath.Path) {
+	to.WriteTx.CreateMap(path)
 
 	to.changes = append(to.changes, bolted.ObservedChange{
 		Path: path,
 		Type: bolted.ChangeTypeMapCreated,
 	})
-	return nil
 }
 
-func (to *txObserver) Put(path dbpath.Path, data []byte) error {
-	err := to.WriteTx.Put(path, data)
-	if err != nil {
-		return err
-	}
+func (to *txObserver) Put(path dbpath.Path, data []byte) {
+	to.WriteTx.Put(path, data)
 
 	to.changes = append(to.changes, bolted.ObservedChange{
 		Path: path,
 		Type: bolted.ChangeTypeValueSet,
 	})
 
-	return nil
 }
 
-func (to *txObserver) Finish() error {
-	err := to.WriteTx.Finish()
-	if err != nil {
-		return err
-	}
-
+func (to *txObserver) OnCommit() {
 	to.o.broadcastChanges(to.changes)
+}
 
-	return nil
+func (to *txObserver) OnRollback(err error) {
 }

@@ -13,77 +13,41 @@ import (
 type writeTx struct {
 	btx         *bbolt.Tx
 	readOnly    bool
-	rolledBack  bool
 	rootBucket  *bbolt.Bucket
 	fillPercent float64
 }
 
-func (w *writeTx) Finish() (err error) {
-	if w.readOnly {
-		w.btx.Rollback()
-		return nil
-	}
-
-	if w.rolledBack {
-		return nil
-	}
-
-	err = w.btx.Commit()
-
-	if err != nil {
-		return fmt.Errorf("while committing transaction: %w", err)
-	}
-
-	return nil
-}
-
-func (w *writeTx) Rollback() (err error) {
-	if w.readOnly {
-		return nil
-	}
-
-	err = w.btx.Rollback()
-	if err != nil {
-		return fmt.Errorf("while rolling back transaction: %w", err)
-	}
-
-	return nil
-}
-
-func (w *writeTx) SetFillPercent(fillPercent float64) error {
+func (w *writeTx) SetFillPercent(fillPercent float64) {
 	if fillPercent < 0.1 {
-		return errors.New("fill percent is too low")
+		panic(fmt.Errorf("%s: %w", "SetFillPercent", errors.New("fill percent is too low")))
 	}
 
 	if fillPercent > 1.0 {
-		return errors.New("fill percent is too high")
+		panic(fmt.Errorf("%s: %w", "SetFillPercent", errors.New("fill percent is too high")))
 	}
 	w.fillPercent = fillPercent
-	return nil
 }
 
-func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
+func raiseErrorForPath(pth dbpath.Path, method string, err error) {
+	panic(fmt.Errorf("%s(%s): %w", method, pth.String(), err))
+}
 
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("CreateMap(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) CreateMap(path dbpath.Path) {
 
 	if len(path) == 0 {
-		return errors.New("root map already exists")
+		raiseErrorForPath(path, "CreateMap", errors.New("root map already exists"))
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return errors.New("root bucket not found")
+		raiseErrorForPath(path, "CreateMap", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "CreateMap", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -91,106 +55,90 @@ func (w *writeTx) CreateMap(path dbpath.Path) (err error) {
 
 	bucket.FillPercent = w.fillPercent
 
-	_, err = bucket.CreateBucket([]byte(last))
+	_, err := bucket.CreateBucket([]byte(last))
 
 	if err != nil {
-		return err
+		raiseErrorForPath(path, "CreateMap", err)
 	}
 
 	bucket.NextSequence()
 
-	return nil
-
 }
 
-func (w *writeTx) Delete(path dbpath.Path) (err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Delete(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Delete(path dbpath.Path) {
 
 	if len(path) == 0 {
-		return errors.New("root cannot be deleted")
+		raiseErrorForPath(path, "Delete", errors.New("root cannot be deleted"))
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return errors.New("root bucket not found")
+		raiseErrorForPath(path, "Delete", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "Delete", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
 	last := []byte(path[len(path)-1])
 
-	defer func() {
-		if err == nil {
-			size := bucket.Sequence()
-			if size == 0 {
-				err = errors.New("successful deletion from empty sequence - this should never happen")
-				return
-			}
-			size--
-			bucket.SetSequence(size)
-		}
-	}()
-
 	bucket.FillPercent = w.fillPercent
+
+	countDownSize := func() {
+		size := bucket.Sequence()
+		if size == 0 {
+			raiseErrorForPath(path, "Delete", errors.New("successful deletion from empty sequence - this should never happen"))
+		}
+		size--
+		bucket.SetSequence(size)
+
+	}
 
 	val := bucket.Get(last)
 	if val != nil {
 		err := bucket.Delete(last)
 		if err != nil {
-			return err
+			raiseErrorForPath(path, "Delete", err)
 		}
-
-		return nil
+		countDownSize()
+		return
 	}
 
 	b := bucket.Bucket(last)
 	if b == nil {
-		return bolted.ErrNotFound
+		raiseErrorForPath(path, "Delete", bolted.ErrNotFound)
 	}
 
-	err = bucket.DeleteBucket(last)
+	err := bucket.DeleteBucket(last)
 
 	if err != nil {
-		return err
+		raiseErrorForPath(path, "Delete", err)
 	}
 
-	return nil
+	countDownSize()
 
 }
 
-func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Put(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Put(path dbpath.Path, value []byte) {
 
 	if len(path) == 0 {
-		return errors.New("value cannot be put as root")
+		raiseErrorForPath(path, "Put", errors.New("value cannot be put as root"))
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return errors.New("root bucket not found")
+		raiseErrorForPath(path, "Put", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "Put", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -198,50 +146,40 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) (err error) {
 
 	exists := bucket.Get([]byte(last)) != nil
 
-	defer func() {
-		if err == nil && !exists {
-			bucket.NextSequence()
-		}
-	}()
-
 	bucket.FillPercent = w.fillPercent
 
-	err = bucket.Put([]byte(last), value)
+	err := bucket.Put([]byte(last), value)
 
 	if err == bbolt.ErrIncompatibleValue {
-		return bolted.ErrConflict
+		raiseErrorForPath(path, "Put", bolted.ErrConflict)
 	}
 
 	if err != nil {
-		return err
+		raiseErrorForPath(path, "Put", err)
 	}
 
-	return nil
+	if !exists {
+		bucket.NextSequence()
+	}
 
 }
 
-func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Get(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Get(path dbpath.Path) (v []byte) {
 
 	if len(path) == 0 {
-		return nil, errors.New("cannot get value of root")
+		raiseErrorForPath(path, "Get", errors.New("cannot get value of root"))
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return nil, errors.New("root bucket not found")
+		raiseErrorForPath(path, "Get", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return nil, errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "Get", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -250,37 +188,32 @@ func (w *writeTx) Get(path dbpath.Path) (v []byte, err error) {
 	v = bucket.Get([]byte(last))
 
 	if v == nil {
-		return nil, errors.New("value not found")
+		raiseErrorForPath(path, "Get", errors.New("value not found"))
 	}
 
 	copyOfValue := make([]byte, len(v))
 	copy(copyOfValue, v)
 
-	return copyOfValue, nil
+	return copyOfValue
 
 }
 
-func (w *writeTx) ID() (uint64, error) {
-	return uint64(w.btx.ID()), nil
+func (w *writeTx) ID() uint64 {
+	return uint64(w.btx.ID())
 }
 
-func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Iterator(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator) {
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return nil, errors.New("root bucket not found")
+		raiseErrorForPath(path, "Iterator", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return nil, errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "Iterator", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -295,32 +228,26 @@ func (w *writeTx) Iterator(path dbpath.Path) (it bolted.Iterator, err error) {
 		key:   string(k),
 		value: copyOfValue,
 		done:  k == nil,
-	}, nil
+	}
 }
 
-func (w *writeTx) Exists(path dbpath.Path) (ex bool, err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Exists(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Exists(path dbpath.Path) (ex bool) {
 
 	if len(path) == 0 {
 		// root always exists
-		return true, nil
+		return true
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return false, errors.New("root bucket not found")
+		raiseErrorForPath(path, "Exists", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return false, nil
+			return false
 		}
 	}
 
@@ -329,36 +256,30 @@ func (w *writeTx) Exists(path dbpath.Path) (ex bool, err error) {
 	v := bucket.Get([]byte(last))
 
 	if v != nil {
-		return true, nil
+		return true
 	}
 
-	return bucket.Bucket([]byte(last)) != nil, nil
+	return bucket.Bucket([]byte(last)) != nil
 
 }
 
-func (w *writeTx) IsMap(path dbpath.Path) (ism bool, err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("IsMap(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) IsMap(path dbpath.Path) (ism bool) {
 
 	if len(path) == 0 {
 		// root is always a map
-		return true, nil
+		return true
 	}
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return false, errors.New("root bucket not found")
+		raiseErrorForPath(path, "IsMap", errors.New("root bucket not found"))
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return false, errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "IsMap", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -367,35 +288,29 @@ func (w *writeTx) IsMap(path dbpath.Path) (ism bool, err error) {
 	v := bucket.Get([]byte(last))
 
 	if v != nil {
-		return false, nil
+		return false
 	}
 
-	return bucket.Bucket([]byte(last)) != nil, nil
+	return bucket.Bucket([]byte(last)) != nil
 
 }
 
-func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
-
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Size(%s): %w", path.String(), err)
-		}
-	}()
+func (w *writeTx) Size(path dbpath.Path) (s uint64) {
 
 	var bucket = w.rootBucket
 
 	if bucket == nil {
-		return 0, errors.New("root bucket not found")
+		raiseErrorForPath(path, "Size", errors.New("root bucket not found"))
 	}
 
 	if len(path) == 0 {
-		return bucket.Sequence(), nil
+		return bucket.Sequence()
 	}
 
 	for _, p := range path[:len(path)-1] {
 		bucket = bucket.Bucket([]byte(p))
 		if bucket == nil {
-			return 0, errors.New("one of the parent buckets does not exist")
+			raiseErrorForPath(path, "Size", errors.New("one of the parent buckets does not exist"))
 		}
 	}
 
@@ -404,23 +319,27 @@ func (w *writeTx) Size(path dbpath.Path) (s uint64, err error) {
 	v := bucket.Get([]byte(last))
 
 	if v != nil {
-		return uint64(len(v)), nil
+		return uint64(len(v))
 	}
 
 	bucket = bucket.Bucket([]byte(last))
 
 	if bucket == nil {
-		return 0, errors.New("does not exist")
+		raiseErrorForPath(path, "Size", errors.New("does not exist"))
 	}
 
-	return bucket.Sequence(), nil
+	return bucket.Sequence()
 
 }
 
-func (w *writeTx) Dump(wr io.Writer) (n int64, err error) {
-	return w.btx.WriteTo(wr)
+func (w *writeTx) Dump(wr io.Writer) (n int64) {
+	n, err := w.btx.WriteTo(wr)
+	if err != nil {
+		panic(fmt.Errorf("%s: %w", "Dump", err))
+	}
+	return n
 }
 
-func (w *writeTx) FileSize() (int64, error) {
-	return w.btx.Size(), nil
+func (w *writeTx) FileSize() int64 {
+	return w.btx.Size()
 }

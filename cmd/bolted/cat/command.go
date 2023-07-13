@@ -47,7 +47,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
+		return db.Read(func(tx bolted.ReadTx) error {
 			val := tx.Get(dbp)
 			_, err := os.Stdout.Write(val)
 			if err != nil {

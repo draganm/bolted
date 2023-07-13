@@ -51,7 +51,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return bolted.SugaredRead(db, func(tx bolted.SugaredReadTx) error {
+		return db.Read(func(tx bolted.ReadTx) error {
 			for it := tx.Iterator(dbp); !it.IsDone(); it.Next() {
 
 				suffix := ""

@@ -9,43 +9,42 @@ import (
 )
 
 type Database interface {
-	BeginWrite() (WriteTx, error)
-	BeginRead() (ReadTx, error)
+	Write(func(tx WriteTx) error) error
+	Read(func(tx ReadTx) error) error
+
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
 	Close() error
 	Stats() (*bbolt.Stats, error)
 }
 
 type WriteTx interface {
-	CreateMap(path dbpath.Path) error
-	Delete(path dbpath.Path) error
-	Put(path dbpath.Path, value []byte) error
-	SetFillPercent(float64) error
-	Rollback() error
+	CreateMap(path dbpath.Path)
+	Delete(path dbpath.Path)
+	Put(path dbpath.Path, value []byte)
+	SetFillPercent(float64)
 	ReadTx
 }
 
 type ReadTx interface {
-	Get(path dbpath.Path) ([]byte, error)
-	Iterator(path dbpath.Path) (Iterator, error)
-	Exists(path dbpath.Path) (bool, error)
-	IsMap(path dbpath.Path) (bool, error)
-	Size(path dbpath.Path) (uint64, error)
-	ID() (uint64, error)
-	Finish() error
-	Dump(w io.Writer) (n int64, err error)
-	FileSize() (int64, error)
+	Get(path dbpath.Path) []byte
+	Iterator(path dbpath.Path) Iterator
+	Exists(path dbpath.Path) bool
+	IsMap(path dbpath.Path) bool
+	Size(path dbpath.Path) uint64
+	ID() uint64
+	Dump(w io.Writer) (n int64)
+	FileSize() int64
 }
 
 type Iterator interface {
-	GetKey() (string, error)
-	GetValue() ([]byte, error)
-	IsDone() (bool, error)
-	Prev() error
-	Next() error
-	Seek(key string) error
-	First() error
-	Last() error
+	GetKey() string
+	GetValue() []byte
+	IsDone() bool
+	Prev()
+	Next()
+	Seek(key string)
+	First()
+	Last()
 }
 
 var ErrNotFound = errors.New("not found")

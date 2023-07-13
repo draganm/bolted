@@ -87,47 +87,84 @@ func (b *Bolted) Stats() (*bbolt.Stats, error) {
 	return &st, nil
 }
 
-func (b *Bolted) BeginWrite() (bolted.WriteTx, error) {
-	btx, err := b.db.Begin(true)
-	if err != nil {
-		return nil, fmt.Errorf("while starting transaction: %w", err)
-	}
+func (b *Bolted) Write(fn func(tx bolted.WriteTx) error) error {
+	return b.db.Update(func(btx *bbolt.Tx) (err error) {
 
-	rootBucket := btx.Bucket([]byte(rootBucketName))
-	wtx := &writeTx{
-		btx:         btx,
-		readOnly:    false,
-		rootBucket:  rootBucket,
-		fillPercent: bbolt.DefaultFillPercent,
-	}
+		defer func() {
 
-	var realWriteTx bolted.WriteTx = wtx
+			v := recover()
+			if v == nil {
+				return
+			}
 
-	for _, d := range b.writeTxDecorators {
-		realWriteTx = d(realWriteTx)
-	}
+			re, isError := v.(error)
+			if isError {
+				err = re
+				return
+			}
 
-	return realWriteTx, nil
+			err = fmt.Errorf("panic: %v", err)
 
+		}()
+
+		rootBucket := btx.Bucket([]byte(rootBucketName))
+		wtx := &writeTx{
+			btx:         btx,
+			readOnly:    false,
+			rootBucket:  rootBucket,
+			fillPercent: bbolt.DefaultFillPercent,
+		}
+
+		var realWriteTx bolted.WriteTx = wtx
+
+		wrappers := []bolted.WriteTx{realWriteTx}
+
+		for _, d := range b.writeTxDecorators {
+			realWriteTx = d(realWriteTx)
+			wrappers = append(wrappers, realWriteTx)
+		}
+
+		err = fn(realWriteTx)
+		if err == nil {
+			for _, w := range wrappers {
+				cl, isCommitListener := w.(CommitListener)
+				if isCommitListener {
+					cl.OnCommit()
+				}
+			}
+		}
+		return err
+	})
 }
 
-func (b *Bolted) beginRead() (*writeTx, error) {
-	btx, err := b.db.Begin(false)
-	if err != nil {
-		return nil, fmt.Errorf("while starting transaction: %w", err)
-	}
+func (b *Bolted) Read(fn func(tx bolted.ReadTx) error) error {
+	return b.db.View(func(btx *bbolt.Tx) (err error) {
 
-	rootBucket := btx.Bucket([]byte(rootBucketName))
-	wtx := &writeTx{
-		btx:        btx,
-		readOnly:   true,
-		rootBucket: rootBucket,
-	}
-	return wtx, nil
-}
+		defer func() {
 
-func (b *Bolted) BeginRead() (bolted.ReadTx, error) {
-	return b.beginRead()
+			v := recover()
+			if v == nil {
+				return
+			}
+			re, isError := v.(error)
+			if isError {
+				err = re
+				return
+			}
+
+			err = fmt.Errorf("panic: %v", err)
+
+		}()
+
+		rootBucket := btx.Bucket([]byte(rootBucketName))
+		tx := &writeTx{
+			btx:         btx,
+			readOnly:    true,
+			rootBucket:  rootBucket,
+			fillPercent: bbolt.DefaultFillPercent,
+		}
+		return fn(tx)
+	})
 }
 
 func (b *Bolted) Observe(path dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
