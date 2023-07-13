@@ -1,63 +1,24 @@
-package metrics_test
+package local_test
 
 import (
 	"errors"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/draganm/bolted/dbt"
 	"github.com/draganm/bolted/local"
-	"github.com/draganm/bolted/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
-
-func openEmptyDatabase(t *testing.T, opts local.Options) (dbt.Database, func()) {
-	td, err := ioutil.TempDir("", "")
-	require.NoError(t, err)
-	removeTempDir := func() {
-		err = os.RemoveAll(td)
-		require.NoError(t, err)
-	}
-
-	db, err := local.Open(filepath.Join(td, "db"), 0660, opts)
-
-	require.NoError(t, err)
-
-	closeDatabase := func() {
-		err = db.Close()
-		require.NoError(t, err)
-	}
-
-	return db, func() {
-		closeDatabase()
-		removeTempDir()
-	}
-
-}
-
-func stringOf(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
 
 func findMetricWithName(t *testing.T, name string) *dto.Metric {
 	metrics, err := prometheus.DefaultGatherer.Gather()
 	require.NoError(t, err)
 
 	for _, m := range metrics {
-		if *m.Name == "bolted_number_of_write_transactions_total" {
+		if *m.Name == name {
 			for _, met := range m.Metric {
-				for _, l := range met.GetLabel() {
-					if stringOf(l.Name) == "dbname" && stringOf(l.Value) == t.Name() {
-						return met
-					}
-				}
+				return met
 			}
 		}
 	}
@@ -70,7 +31,7 @@ func findMetricWithName(t *testing.T, name string) *dto.Metric {
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
 
 		defer cleanupDatabase()
 
@@ -91,7 +52,7 @@ func TestMetrics(t *testing.T) {
 
 	t.Run("number of successful transactions", func(t *testing.T) {
 
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
 
 		defer cleanupDatabase()
 
@@ -111,7 +72,7 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{WriteDecorators: []local.WriteTxDecorator{metrics.NewWriteTxDecorator(t.Name())}})
+		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
 
 		defer cleanupDatabase()
 
@@ -128,6 +89,20 @@ func TestMetrics(t *testing.T) {
 		require.NotNil(t, met.Counter.Value)
 
 		require.Equal(t, 1.0, *met.Counter.Value)
+	})
+
+	t.Run("db file size", func(t *testing.T) {
+		_, cleanupDatabase := openEmptyDatabase(t, local.Options{})
+
+		defer cleanupDatabase()
+
+		met := findMetricWithName(t, "bolted_db_file_size")
+
+		require.NotNil(t, met.Gauge)
+
+		require.NotNil(t, met.Gauge.Value)
+
+		require.Greater(t, *met.Gauge.Value, 1.0)
 	})
 
 }

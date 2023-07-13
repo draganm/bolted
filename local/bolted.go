@@ -11,6 +11,7 @@ import (
 )
 
 type LocalDB struct {
+	path              string
 	db                *bbolt.DB
 	obs               *observer
 	writeTxDecorators []WriteTxDecorator
@@ -29,6 +30,8 @@ func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 		return nil, fmt.Errorf("while opening bolt db: %w", err)
 	}
 
+	var fileSize float64
+
 	{
 		tx, err := db.Begin(false)
 		if err != nil {
@@ -36,6 +39,8 @@ func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 		}
 
 		rootExists := tx.Bucket([]byte(rootBucketName)) != nil
+
+		fileSize = float64(tx.Size())
 
 		err = tx.Rollback()
 		if err != nil {
@@ -51,6 +56,7 @@ func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 						return err
 					}
 				}
+				fileSize = float64(tx.Size())
 				return nil
 			})
 			if err != nil {
@@ -63,12 +69,15 @@ func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 	obs := newObserver()
 
 	b := &LocalDB{
+		path:              path,
 		db:                db,
 		obs:               obs,
 		writeTxDecorators: []WriteTxDecorator{obs.writeTxDecorator},
 	}
 
 	b.writeTxDecorators = append(b.writeTxDecorators, options.WriteDecorators...)
+
+	initializeMetricsForDB(path, fileSize)
 
 	return b, nil
 
@@ -79,6 +88,7 @@ func (b *LocalDB) Close() error {
 	if err != nil {
 		return err
 	}
+	removeMetricsForDB(b.path)
 	return nil
 }
 
@@ -89,10 +99,32 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 
 func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) error {
 	return b.db.Update(func(btx *bbolt.Tx) (err error) {
-
+		{
+			cnt, err2 := numberOfWriteTransactionsVec.GetMetricWithLabelValues(b.path)
+			if err2 == nil {
+				cnt.Inc()
+			}
+		}
 		defer func() {
 
 			v := recover()
+			if v == nil && err == nil {
+				cnt, err2 := numberOfSuccessfulWriteTransactionsVec.GetMetricWithLabelValues(b.path)
+				if err2 == nil {
+					cnt.Inc()
+				}
+				g, err2 := dbFileSizeVec.GetMetricWithLabelValues(b.path)
+				if err2 == nil {
+					g.Set(float64(btx.Size()))
+				}
+				return
+			}
+
+			cnt, err2 := numberOfFailedTransactionsVec.GetMetricWithLabelValues(b.path)
+			if err2 == nil {
+				cnt.Inc()
+			}
+
 			if v == nil {
 				return
 			}
