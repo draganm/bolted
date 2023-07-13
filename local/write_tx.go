@@ -15,6 +15,7 @@ type writeTx struct {
 	readOnly    bool
 	rootBucket  *bbolt.Bucket
 	fillPercent float64
+	observer    *txObserver
 }
 
 func (w *writeTx) SetFillPercent(fillPercent float64) {
@@ -63,6 +64,8 @@ func (w *writeTx) CreateMap(path dbpath.Path) {
 
 	bucket.NextSequence()
 
+	w.observer.createMap(path)
+
 }
 
 func (w *writeTx) Delete(path dbpath.Path) {
@@ -105,6 +108,7 @@ func (w *writeTx) Delete(path dbpath.Path) {
 			raiseErrorForPath(path, "Delete", err)
 		}
 		countDownSize()
+		w.observer.delete(path)
 		return
 	}
 
@@ -120,6 +124,8 @@ func (w *writeTx) Delete(path dbpath.Path) {
 	}
 
 	countDownSize()
+
+	w.observer.delete(path)
 
 }
 
@@ -161,6 +167,8 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) {
 	if !exists {
 		bucket.NextSequence()
 	}
+
+	w.observer.put(path)
 
 }
 

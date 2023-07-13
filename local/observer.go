@@ -132,20 +132,17 @@ func (w *observer) observe(m dbpath.Matcher) (<-chan dbt.ObservedChanges, func()
 }
 
 type txObserver struct {
-	o *observer
-	dbt.WriteTx
+	o       *observer
 	changes []dbt.ObservedChange
 }
 
-func (o *observer) writeTxDecorator(tx dbt.WriteTx) dbt.WriteTx {
+func (o *observer) newWTxObserver() *txObserver {
 	return &txObserver{
-		o:       o,
-		WriteTx: tx,
+		o: o,
 	}
 }
 
-func (to *txObserver) Delete(path dbpath.Path) {
-	to.WriteTx.Delete(path)
+func (to *txObserver) delete(path dbpath.Path) {
 
 	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
@@ -153,8 +150,7 @@ func (to *txObserver) Delete(path dbpath.Path) {
 	})
 }
 
-func (to *txObserver) CreateMap(path dbpath.Path) {
-	to.WriteTx.CreateMap(path)
+func (to *txObserver) createMap(path dbpath.Path) {
 
 	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
@@ -162,9 +158,7 @@ func (to *txObserver) CreateMap(path dbpath.Path) {
 	})
 }
 
-func (to *txObserver) Put(path dbpath.Path, data []byte) {
-	to.WriteTx.Put(path, data)
-
+func (to *txObserver) put(path dbpath.Path) {
 	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
 		Type: dbt.ChangeTypeValueSet,
@@ -172,9 +166,6 @@ func (to *txObserver) Put(path dbpath.Path, data []byte) {
 
 }
 
-func (to *txObserver) OnCommit() {
+func (to *txObserver) broadcast() {
 	to.o.broadcastChanges(to.changes)
-}
-
-func (to *txObserver) OnRollback(err error) {
 }

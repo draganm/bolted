@@ -11,15 +11,13 @@ import (
 )
 
 type LocalDB struct {
-	path              string
-	db                *bbolt.DB
-	obs               *observer
-	writeTxDecorators []WriteTxDecorator
+	path string
+	db   *bbolt.DB
+	obs  *observer
 }
 
 type Options struct {
 	bbolt.Options
-	WriteDecorators []WriteTxDecorator
 }
 
 const rootBucketName = "root"
@@ -69,13 +67,10 @@ func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 	obs := newObserver()
 
 	b := &LocalDB{
-		path:              path,
-		db:                db,
-		obs:               obs,
-		writeTxDecorators: []WriteTxDecorator{obs.writeTxDecorator},
+		path: path,
+		db:   db,
+		obs:  obs,
 	}
-
-	b.writeTxDecorators = append(b.writeTxDecorators, options.WriteDecorators...)
 
 	initializeMetricsForDB(path, fileSize)
 
@@ -97,7 +92,15 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 	return &st, nil
 }
 
-func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) error {
+func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) (err error) {
+	txObserver := b.obs.newWTxObserver()
+
+	defer func() {
+		if err == nil {
+			txObserver.broadcast()
+		}
+	}()
+
 	return b.db.Update(func(btx *bbolt.Tx) (err error) {
 		{
 			cnt, err2 := numberOfWriteTransactionsVec.GetMetricWithLabelValues(b.path)
@@ -145,27 +148,10 @@ func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) error {
 			readOnly:    false,
 			rootBucket:  rootBucket,
 			fillPercent: bbolt.DefaultFillPercent,
+			observer:    txObserver,
 		}
 
-		var realWriteTx dbt.WriteTx = wtx
-
-		wrappers := []dbt.WriteTx{realWriteTx}
-
-		for _, d := range b.writeTxDecorators {
-			realWriteTx = d(realWriteTx)
-			wrappers = append(wrappers, realWriteTx)
-		}
-
-		err = fn(realWriteTx)
-		if err == nil {
-			for _, w := range wrappers {
-				cl, isCommitListener := w.(CommitListener)
-				if isCommitListener {
-					cl.OnCommit()
-				}
-			}
-		}
-		return err
+		return fn(wtx)
 	})
 }
 
