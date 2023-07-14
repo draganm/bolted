@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -92,7 +93,7 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 	return &st, nil
 }
 
-func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) (err error) {
+func (b *LocalDB) Write(ctx context.Context, fn func(tx dbt.WriteTx) error) (err error) {
 	txObserver := b.obs.newWTxObserver()
 
 	defer func() {
@@ -149,13 +150,14 @@ func (b *LocalDB) Write(fn func(tx dbt.WriteTx) error) (err error) {
 			rootBucket:  rootBucket,
 			fillPercent: bbolt.DefaultFillPercent,
 			observer:    txObserver,
+			ctx:         ctx,
 		}
 
 		return fn(wtx)
 	})
 }
 
-func (b *LocalDB) Read(fn func(tx dbt.ReadTx) error) error {
+func (b *LocalDB) Read(ctx context.Context, fn func(tx dbt.ReadTx) error) error {
 	return b.db.View(func(btx *bbolt.Tx) (err error) {
 
 		defer func() {
@@ -180,6 +182,7 @@ func (b *LocalDB) Read(fn func(tx dbt.ReadTx) error) error {
 			readOnly:    true,
 			rootBucket:  rootBucket,
 			fillPercent: bbolt.DefaultFillPercent,
+			ctx:         ctx,
 		}
 		return fn(tx)
 	})

@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ type writeTx struct {
 	rootBucket  *bbolt.Bucket
 	fillPercent float64
 	observer    *txObserver
+	ctx         context.Context
 }
 
 func (w *writeTx) SetFillPercent(fillPercent float64) {
@@ -348,6 +350,10 @@ func (w *writeTx) Dump(wr io.Writer) (n int64) {
 	return n
 }
 
-func (w *writeTx) DBFileSize() int64 {
+func (w *writeTx) GetDBFileSize() int64 {
 	return w.btx.Size()
+}
+
+func (w *writeTx) Context() context.Context {
+	return w.ctx
 }

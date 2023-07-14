@@ -1,6 +1,7 @@
 package dbt
 
 import (
+	"context"
 	"errors"
 	"io"
 
@@ -9,8 +10,8 @@ import (
 )
 
 type Database interface {
-	Write(func(tx WriteTx) error) error
-	Read(func(tx ReadTx) error) error
+	Write(context.Context, func(tx WriteTx) error) error
+	Read(context.Context, func(tx ReadTx) error) error
 
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
 	Close() error
@@ -33,7 +34,8 @@ type ReadTx interface {
 	GetSizeOf(path dbpath.Path) uint64
 	ID() uint64
 	Dump(w io.Writer) (n int64)
-	DBFileSize() int64
+	GetDBFileSize() int64
+	Context() context.Context
 }
 
 type Iterator interface {

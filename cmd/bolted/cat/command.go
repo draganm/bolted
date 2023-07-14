@@ -1,6 +1,7 @@
 package cat
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -47,7 +48,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return db.Read(func(tx dbt.ReadTx) error {
+		return db.Read(context.Background(), func(tx dbt.ReadTx) error {
 			val := tx.Get(dbp)
 			_, err := os.Stdout.Write(val)
 			if err != nil {
