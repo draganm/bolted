@@ -1,10 +1,10 @@
-package embedded
+package local
 
 import (
 	"sync"
 
-	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
+	"github.com/draganm/bolted/dbt"
 )
 
 type observer struct {
@@ -13,7 +13,7 @@ type observer struct {
 	nextReceiverKey int
 }
 
-func (o *observer) broadcastChanges(changes bolted.ObservedChanges) {
+func (o *observer) broadcastChanges(changes dbt.ObservedChanges) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	for _, r := range o.receivers {
@@ -24,16 +24,16 @@ func (o *observer) broadcastChanges(changes bolted.ObservedChanges) {
 type receiver struct {
 	m dbpath.Matcher
 
-	eventsChan chan<- bolted.ObservedChanges
-	incoming   chan<- bolted.ObservedChanges
+	eventsChan chan<- dbt.ObservedChanges
+	incoming   chan<- dbt.ObservedChanges
 }
 
-func (r *receiver) notify(changes bolted.ObservedChanges) {
+func (r *receiver) notify(changes dbt.ObservedChanges) {
 
-	matchingChanges := bolted.ObservedChanges{}
+	matchingChanges := dbt.ObservedChanges{}
 
 	for _, ch := range changes {
-		if ch.Type == bolted.ChangeTypeDeleted || r.m.Matches(ch.Path) {
+		if ch.Type == dbt.ChangeTypeDeleted || r.m.Matches(ch.Path) {
 			matchingChanges = matchingChanges.Update(ch.Path, ch.Type)
 		}
 	}
@@ -46,14 +46,14 @@ func (r *receiver) notify(changes bolted.ObservedChanges) {
 
 }
 
-func newReceiver(m dbpath.Matcher) (*receiver, <-chan bolted.ObservedChanges) {
-	ch := make(chan bolted.ObservedChanges, 1)
-	ch <- bolted.ObservedChanges{}
+func newReceiver(m dbpath.Matcher) (*receiver, <-chan dbt.ObservedChanges) {
+	ch := make(chan dbt.ObservedChanges, 1)
+	ch <- dbt.ObservedChanges{}
 
-	incoming := make(chan bolted.ObservedChanges, 1)
+	incoming := make(chan dbt.ObservedChanges, 1)
 
 	go func() {
-		buffer := []bolted.ObservedChanges{}
+		buffer := []dbt.ObservedChanges{}
 
 		for {
 			if len(buffer) == 0 {
@@ -106,7 +106,7 @@ func newObserver() *observer {
 	}
 }
 
-func (w *observer) observe(m dbpath.Matcher) (<-chan bolted.ObservedChanges, func()) {
+func (w *observer) observe(m dbpath.Matcher) (<-chan dbt.ObservedChanges, func()) {
 	w.mu.Lock()
 	receiver, changesChan := newReceiver(m)
 	receiverKey := w.nextReceiverKey
@@ -132,65 +132,40 @@ func (w *observer) observe(m dbpath.Matcher) (<-chan bolted.ObservedChanges, fun
 }
 
 type txObserver struct {
-	o *observer
-	bolted.WriteTx
-	changes []bolted.ObservedChange
+	o       *observer
+	changes []dbt.ObservedChange
 }
 
-func (o *observer) writeTxDecorator(tx bolted.WriteTx) bolted.WriteTx {
+func (o *observer) newWTxObserver() *txObserver {
 	return &txObserver{
-		o:       o,
-		WriteTx: tx,
+		o: o,
 	}
 }
 
-func (to *txObserver) Delete(path dbpath.Path) error {
-	err := to.WriteTx.Delete(path)
-	if err != nil {
-		return err
-	}
+func (to *txObserver) delete(path dbpath.Path) {
 
-	to.changes = append(to.changes, bolted.ObservedChange{
+	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
-		Type: bolted.ChangeTypeDeleted,
+		Type: dbt.ChangeTypeDeleted,
 	})
-	return nil
 }
 
-func (to *txObserver) CreateMap(path dbpath.Path) error {
-	err := to.WriteTx.CreateMap(path)
-	if err != nil {
-		return err
-	}
+func (to *txObserver) createMap(path dbpath.Path) {
 
-	to.changes = append(to.changes, bolted.ObservedChange{
+	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
-		Type: bolted.ChangeTypeMapCreated,
+		Type: dbt.ChangeTypeMapCreated,
 	})
-	return nil
 }
 
-func (to *txObserver) Put(path dbpath.Path, data []byte) error {
-	err := to.WriteTx.Put(path, data)
-	if err != nil {
-		return err
-	}
-
-	to.changes = append(to.changes, bolted.ObservedChange{
+func (to *txObserver) put(path dbpath.Path) {
+	to.changes = append(to.changes, dbt.ObservedChange{
 		Path: path,
-		Type: bolted.ChangeTypeValueSet,
+		Type: dbt.ChangeTypeValueSet,
 	})
 
-	return nil
 }
 
-func (to *txObserver) Finish() error {
-	err := to.WriteTx.Finish()
-	if err != nil {
-		return err
-	}
-
+func (to *txObserver) broadcast() {
 	to.o.broadcastChanges(to.changes)
-
-	return nil
 }
