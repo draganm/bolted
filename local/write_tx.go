@@ -20,7 +20,14 @@ type writeTx struct {
 	ctx         context.Context
 }
 
+func (w *writeTx) checkForCancelledContext() {
+	if w.ctx.Err() != nil {
+		panic(w.ctx.Err())
+	}
+}
+
 func (w *writeTx) SetFillPercent(fillPercent float64) {
+	w.checkForCancelledContext()
 	if fillPercent < 0.1 {
 		panic(fmt.Errorf("%s: %w", "SetFillPercent", errors.New("fill percent is too low")))
 	}
@@ -36,6 +43,7 @@ func raiseErrorForPath(pth dbpath.Path, method string, err error) {
 }
 
 func (w *writeTx) CreateMap(path dbpath.Path) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		raiseErrorForPath(path, "CreateMap", errors.New("root map already exists"))
@@ -71,6 +79,7 @@ func (w *writeTx) CreateMap(path dbpath.Path) {
 }
 
 func (w *writeTx) Delete(path dbpath.Path) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		raiseErrorForPath(path, "Delete", errors.New("root cannot be deleted"))
@@ -132,6 +141,7 @@ func (w *writeTx) Delete(path dbpath.Path) {
 }
 
 func (w *writeTx) Put(path dbpath.Path, value []byte) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		raiseErrorForPath(path, "Put", errors.New("value cannot be put as root"))
@@ -175,6 +185,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) {
 }
 
 func (w *writeTx) Get(path dbpath.Path) (v []byte) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		raiseErrorForPath(path, "Get", errors.New("cannot get value of root"))
@@ -213,6 +224,7 @@ func (w *writeTx) ID() uint64 {
 }
 
 func (w *writeTx) Iterate(path dbpath.Path) (it dbt.Iterator) {
+	w.checkForCancelledContext()
 
 	var bucket = w.rootBucket
 
@@ -238,10 +250,12 @@ func (w *writeTx) Iterate(path dbpath.Path) (it dbt.Iterator) {
 		key:   string(k),
 		value: copyOfValue,
 		done:  k == nil,
+		ctx:   w.ctx,
 	}
 }
 
 func (w *writeTx) Exists(path dbpath.Path) (ex bool) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		// root always exists
@@ -274,6 +288,7 @@ func (w *writeTx) Exists(path dbpath.Path) (ex bool) {
 }
 
 func (w *writeTx) IsMap(path dbpath.Path) (ism bool) {
+	w.checkForCancelledContext()
 
 	if len(path) == 0 {
 		// root is always a map
@@ -306,6 +321,7 @@ func (w *writeTx) IsMap(path dbpath.Path) (ism bool) {
 }
 
 func (w *writeTx) GetSizeOf(path dbpath.Path) (s uint64) {
+	w.checkForCancelledContext()
 
 	var bucket = w.rootBucket
 
@@ -343,6 +359,7 @@ func (w *writeTx) GetSizeOf(path dbpath.Path) (s uint64) {
 }
 
 func (w *writeTx) Dump(wr io.Writer) (n int64) {
+	w.checkForCancelledContext()
 	n, err := w.btx.WriteTo(wr)
 	if err != nil {
 		panic(fmt.Errorf("%s: %w", "Dump", err))
@@ -351,6 +368,7 @@ func (w *writeTx) Dump(wr io.Writer) (n int64) {
 }
 
 func (w *writeTx) GetDBFileSize() int64 {
+	w.checkForCancelledContext()
 	return w.btx.Size()
 }
 
