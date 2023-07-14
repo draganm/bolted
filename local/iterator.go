@@ -30,9 +30,9 @@ func (i *iterator) GetValue() []byte {
 	return i.value
 }
 
-func (i *iterator) IsDone() bool {
+func (i *iterator) HasNext() bool {
 	i.checkForCancelledContext()
-	return i.done
+	return !i.done
 }
 
 func (i *iterator) Next() {
