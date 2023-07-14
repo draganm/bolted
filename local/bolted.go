@@ -7,6 +7,7 @@ import (
 
 	"github.com/draganm/bolted/dbpath"
 	"github.com/draganm/bolted/dbt"
+	"go.opentelemetry.io/otel"
 
 	"go.etcd.io/bbolt"
 )
@@ -22,6 +23,8 @@ type Options struct {
 }
 
 const rootBucketName = "root"
+
+var tracer = otel.Tracer("github.com/draganm/bolted")
 
 func Open(path string, mode os.FileMode, options Options) (*LocalDB, error) {
 	db, err := bbolt.Open(path, mode, &options.Options)
@@ -94,6 +97,16 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 }
 
 func (b *LocalDB) Write(ctx context.Context, fn func(tx dbt.WriteTx) error) (err error) {
+
+	ctx, span := tracer.Start(ctx, "Write")
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+		span.End()
+	}()
+
 	txObserver := b.obs.newWTxObserver()
 
 	defer func() {
@@ -157,7 +170,15 @@ func (b *LocalDB) Write(ctx context.Context, fn func(tx dbt.WriteTx) error) (err
 	})
 }
 
-func (b *LocalDB) Read(ctx context.Context, fn func(tx dbt.ReadTx) error) error {
+func (b *LocalDB) Read(ctx context.Context, fn func(tx dbt.ReadTx) error) (err error) {
+	ctx, span := tracer.Start(ctx, "Read")
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+		span.End()
+	}()
+
 	return b.db.View(func(btx *bbolt.Tx) (err error) {
 
 		defer func() {
