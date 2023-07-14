@@ -358,7 +358,7 @@ func (w *writeTx) GetSizeOf(path dbpath.Path) (s uint64) {
 
 }
 
-func (w *writeTx) Dump(wr io.Writer) (n int64) {
+func (w *writeTx) DumpDatabase(wr io.Writer) (n int64) {
 	w.checkForCancelledContext()
 	n, err := w.btx.WriteTo(wr)
 	if err != nil {

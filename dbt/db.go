@@ -33,7 +33,7 @@ type ReadTx interface {
 	IsMap(path dbpath.Path) bool
 	GetSizeOf(path dbpath.Path) uint64
 	ID() uint64
-	Dump(w io.Writer) (n int64)
+	DumpDatabase(w io.Writer) (n int64)
 	GetDBFileSize() int64
 	Context() context.Context
 }
