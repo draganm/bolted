@@ -1,10 +1,9 @@
-package local
+package bolted
 
 import (
 	"sync"
 
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/dbt"
 )
 
 type observer struct {
@@ -13,7 +12,7 @@ type observer struct {
 	nextReceiverKey int
 }
 
-func (o *observer) broadcastChanges(changes dbt.ObservedChanges) {
+func (o *observer) broadcastChanges(changes ObservedChanges) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	for _, r := range o.receivers {
@@ -24,16 +23,16 @@ func (o *observer) broadcastChanges(changes dbt.ObservedChanges) {
 type receiver struct {
 	m dbpath.Matcher
 
-	eventsChan chan<- dbt.ObservedChanges
-	incoming   chan<- dbt.ObservedChanges
+	eventsChan chan<- ObservedChanges
+	incoming   chan<- ObservedChanges
 }
 
-func (r *receiver) notify(changes dbt.ObservedChanges) {
+func (r *receiver) notify(changes ObservedChanges) {
 
-	matchingChanges := dbt.ObservedChanges{}
+	matchingChanges := ObservedChanges{}
 
 	for _, ch := range changes {
-		if ch.Type == dbt.ChangeTypeDeleted || r.m.Matches(ch.Path) {
+		if ch.Type == ChangeTypeDeleted || r.m.Matches(ch.Path) {
 			matchingChanges = matchingChanges.Update(ch.Path, ch.Type)
 		}
 	}
@@ -46,14 +45,14 @@ func (r *receiver) notify(changes dbt.ObservedChanges) {
 
 }
 
-func newReceiver(m dbpath.Matcher) (*receiver, <-chan dbt.ObservedChanges) {
-	ch := make(chan dbt.ObservedChanges, 1)
-	ch <- dbt.ObservedChanges{}
+func newReceiver(m dbpath.Matcher) (*receiver, <-chan ObservedChanges) {
+	ch := make(chan ObservedChanges, 1)
+	ch <- ObservedChanges{}
 
-	incoming := make(chan dbt.ObservedChanges, 1)
+	incoming := make(chan ObservedChanges, 1)
 
 	go func() {
-		buffer := []dbt.ObservedChanges{}
+		buffer := []ObservedChanges{}
 
 		for {
 			if len(buffer) == 0 {
@@ -106,7 +105,7 @@ func newObserver() *observer {
 	}
 }
 
-func (w *observer) observe(m dbpath.Matcher) (<-chan dbt.ObservedChanges, func()) {
+func (w *observer) observe(m dbpath.Matcher) (<-chan ObservedChanges, func()) {
 	w.mu.Lock()
 	receiver, changesChan := newReceiver(m)
 	receiverKey := w.nextReceiverKey
@@ -133,7 +132,7 @@ func (w *observer) observe(m dbpath.Matcher) (<-chan dbt.ObservedChanges, func()
 
 type txObserver struct {
 	o       *observer
-	changes []dbt.ObservedChange
+	changes []ObservedChange
 }
 
 func (o *observer) newWTxObserver() *txObserver {
@@ -144,24 +143,24 @@ func (o *observer) newWTxObserver() *txObserver {
 
 func (to *txObserver) delete(path dbpath.Path) {
 
-	to.changes = append(to.changes, dbt.ObservedChange{
+	to.changes = append(to.changes, ObservedChange{
 		Path: path,
-		Type: dbt.ChangeTypeDeleted,
+		Type: ChangeTypeDeleted,
 	})
 }
 
 func (to *txObserver) createMap(path dbpath.Path) {
 
-	to.changes = append(to.changes, dbt.ObservedChange{
+	to.changes = append(to.changes, ObservedChange{
 		Path: path,
-		Type: dbt.ChangeTypeMapCreated,
+		Type: ChangeTypeMapCreated,
 	})
 }
 
 func (to *txObserver) put(path dbpath.Path) {
-	to.changes = append(to.changes, dbt.ObservedChange{
+	to.changes = append(to.changes, ObservedChange{
 		Path: path,
-		Type: dbt.ChangeTypeValueSet,
+		Type: ChangeTypeValueSet,
 	})
 
 }

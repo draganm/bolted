@@ -1,4 +1,4 @@
-package local
+package bolted
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/dbt"
 	"go.opentelemetry.io/otel"
 
 	"go.etcd.io/bbolt"
@@ -96,7 +95,7 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 	return &st, nil
 }
 
-func (b *LocalDB) Write(ctx context.Context, fn func(tx dbt.WriteTx) error) (err error) {
+func (b *LocalDB) Write(ctx context.Context, fn func(tx WriteTx) error) (err error) {
 
 	ctx, span := tracer.Start(ctx, "Write")
 
@@ -170,7 +169,7 @@ func (b *LocalDB) Write(ctx context.Context, fn func(tx dbt.WriteTx) error) (err
 	})
 }
 
-func (b *LocalDB) Read(ctx context.Context, fn func(tx dbt.ReadTx) error) (err error) {
+func (b *LocalDB) Read(ctx context.Context, fn func(tx ReadTx) error) (err error) {
 	ctx, span := tracer.Start(ctx, "Read")
 	defer func() {
 		if err != nil {
@@ -209,7 +208,7 @@ func (b *LocalDB) Read(ctx context.Context, fn func(tx dbt.ReadTx) error) (err e
 	})
 }
 
-func (b *LocalDB) Observe(path dbpath.Matcher) (<-chan dbt.ObservedChanges, func()) {
+func (b *LocalDB) Observe(path dbpath.Matcher) (<-chan ObservedChanges, func()) {
 	ev, cl := b.obs.observe(path)
 	return ev, cl
 }

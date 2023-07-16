@@ -1,4 +1,4 @@
-package dbt
+package bolted
 
 import (
 	"context"
