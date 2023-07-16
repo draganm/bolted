@@ -1,4 +1,4 @@
-package local
+package bolted
 
 import "github.com/prometheus/client_golang/prometheus"
 

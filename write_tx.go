@@ -1,4 +1,4 @@
-package local
+package bolted
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/dbt"
 	"go.etcd.io/bbolt"
 )
 
@@ -125,7 +124,7 @@ func (w *writeTx) Delete(path dbpath.Path) {
 
 	b := bucket.Bucket(last)
 	if b == nil {
-		raiseErrorForPath(path, "Delete", dbt.ErrNotFound)
+		raiseErrorForPath(path, "Delete", ErrNotFound)
 	}
 
 	err := bucket.DeleteBucket(last)
@@ -169,7 +168,7 @@ func (w *writeTx) Put(path dbpath.Path, value []byte) {
 	err := bucket.Put([]byte(last), value)
 
 	if err == bbolt.ErrIncompatibleValue {
-		raiseErrorForPath(path, "Put", dbt.ErrConflict)
+		raiseErrorForPath(path, "Put", ErrConflict)
 	}
 
 	if err != nil {
@@ -223,7 +222,7 @@ func (w *writeTx) ID() uint64 {
 	return uint64(w.btx.ID())
 }
 
-func (w *writeTx) Iterate(path dbpath.Path) (it dbt.Iterator) {
+func (w *writeTx) Iterate(path dbpath.Path) (it Iterator) {
 	w.checkForCancelledContext()
 
 	var bucket = w.rootBucket

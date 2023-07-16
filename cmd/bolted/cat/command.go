@@ -6,9 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/draganm/bolted"
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/dbt"
-	"github.com/draganm/bolted/local"
 	"github.com/urfave/cli/v2"
 	"go.etcd.io/bbolt"
 )
@@ -37,7 +36,7 @@ var Command = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("while parsing path %s: %w", p, err)
 		}
-		db, err := local.Open(sourceFile, 0700, local.Options{
+		db, err := bolted.Open(sourceFile, 0700, bolted.Options{
 			Options: bbolt.Options{
 				Timeout:  c.Duration("open-timeout"),
 				ReadOnly: true,
@@ -48,7 +47,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return db.Read(context.Background(), func(tx dbt.ReadTx) error {
+		return db.Read(context.Background(), func(tx bolted.ReadTx) error {
 			val := tx.Get(dbp)
 			_, err := os.Stdout.Write(val)
 			if err != nil {

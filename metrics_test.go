@@ -1,11 +1,10 @@
-package local_test
+package bolted_test
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/draganm/bolted/dbt"
-	"github.com/draganm/bolted/local"
+	"github.com/draganm/bolted"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
@@ -31,11 +30,11 @@ func findMetricWithName(t *testing.T, name string) *dto.Metric {
 func TestMetrics(t *testing.T) {
 
 	t.Run("number of write transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
+		db, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 
 		defer cleanupDatabase()
 
-		err := db.Write(ctx, func(tx dbt.WriteTx) error {
+		err := db.Write(ctx, func(tx bolted.WriteTx) error {
 			return nil
 		})
 
@@ -52,11 +51,11 @@ func TestMetrics(t *testing.T) {
 
 	t.Run("number of successful transactions", func(t *testing.T) {
 
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
+		db, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 
 		defer cleanupDatabase()
 
-		err := db.Write(ctx, func(tx dbt.WriteTx) error {
+		err := db.Write(ctx, func(tx bolted.WriteTx) error {
 			return nil
 		})
 
@@ -72,11 +71,11 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("number of failed transactions", func(t *testing.T) {
-		db, cleanupDatabase := openEmptyDatabase(t, local.Options{})
+		db, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 
 		defer cleanupDatabase()
 
-		err := db.Write(ctx, func(tx dbt.WriteTx) error {
+		err := db.Write(ctx, func(tx bolted.WriteTx) error {
 			return errors.New("nope!")
 		})
 
@@ -92,7 +91,7 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("db file size", func(t *testing.T) {
-		_, cleanupDatabase := openEmptyDatabase(t, local.Options{})
+		_, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 
 		defer cleanupDatabase()
 
