@@ -70,13 +70,13 @@ import (
 	"fmt"
 
 	"github.com/draganm/bolted/dbpath"
-	"github.com/draganm/bolted/dbt"
+	"github.com/draganm/bolted"
 )
 
-func ReadUserBolted(db dbt.Database) (*User, error) {
+func ReadUserBolted(db bolted.Database) (*User, error) {
 	var v []byte
 
-	err := db.Read(context.Background(), func(tx dbt.ReadTx) error {
+	err := db.Read(context.Background(), func(tx bolted.ReadTx) error {
 		v = tx.Get(dbpath.ToPath("foo", "bar", "baz"))
 		return nil
 	})
