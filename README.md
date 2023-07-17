@@ -1,13 +1,15 @@
 # Bolted
 
-Wrapper around [bbolt](https://github.com/etcd-io/bbolt) database adding following features.
+Bolted is a lightweight and easy-to-use wrapper around [bbolt](https://github.com/etcd-io/bbolt) database, providing additional features and a more concise API.
+With Bolted, you can work with nested buckets within transactions in a more expressive and readable manner. 
+It also offers an observer pattern for change notifications, supports Prometheus metrics for monitoring, and integrates Open Telemetry spans for tracing read and write operations.
 
-* More concise and readable code within the transactions, especially when using nested buckets.
-* Observer pattern, allowing to be notified when values of interest did change within a transaction.
-* Publishing [Prometheus](https://github.com/prometheus/client_golang) metrics
-* [Open Telemetry](https://opentelemetry.io/) spans for `Read` and `Write` operations.
+# Features
 
-Bolted emphasizes use of the nested buckets in `bbolt` turning it into a highly performant filesystem with ACID transactions that is easy to use.
+* Concise Transactions: Express nested bucket operations with fewer lines of code, making your codebase more readable and maintainable.
+* Observer Pattern: Receive notifications when values of interest change within a transaction, allowing you to respond to data updates effectively.
+* [Prometheus Metrics](https://github.com/prometheus/client_golang): Monitor your database usage and performance with built-in support for publishing Prometheus metrics.
+* [Open Telemetry](https://opentelemetry.io/) Spans: Gain insights into the performance of read and write operations using Open Telemetry spans.
 
 ## Why should I use it?
 
@@ -99,3 +101,10 @@ func ReadUserBolted(db bolted.Database) (*User, error) {
 
 you will quickly notice that `bolted` will let you express the same semantic with 2 lines of code instead of 15.
 
+## Contributing
+
+We welcome contributions to Bolted! If you find any issues or have ideas for improvements, feel free to open an issue or submit a pull request on [GitHub](https://github.com/draganm/bolted).
+
+
+## License
+Bolted is distributed under the MIT License, making it free and open-source for anyone to use.
