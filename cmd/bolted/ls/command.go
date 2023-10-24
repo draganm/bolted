@@ -1,7 +1,6 @@
 package ls
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -51,7 +50,7 @@ var Command = &cli.Command{
 			return fmt.Errorf("while opening database: %w", err)
 		}
 
-		return db.Read(context.Background(), func(tx bolted.ReadTx) error {
+		return db.Read(func(tx bolted.ReadTx) error {
 			for it := tx.Iterate(dbp); !it.IsDone(); it.Next() {
 
 				suffix := ""

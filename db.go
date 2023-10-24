@@ -10,8 +10,11 @@ import (
 )
 
 type Database interface {
-	Write(context.Context, func(tx WriteTx) error) error
-	Read(context.Context, func(tx ReadTx) error) error
+	Read(func(tx ReadTx) error) error
+	ReadWithContext(context.Context, func(tx ReadTx) error) error
+
+	Write(func(tx WriteTx) error) error
+	WriteWithContext(context.Context, func(tx WriteTx) error) error
 
 	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
 	Close() error
