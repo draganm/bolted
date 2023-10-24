@@ -178,7 +178,7 @@ var _ = steps.Then("I iterate over all entries", func(w *world.World) {
 	db := getDB(w)
 	result := [][2]string{}
 	err := db.Read(ctx, func(tx bolted.ReadTx) error {
-		for it := tx.Iterate(dbpath.NilPath); it.HasNext(); it.Next() {
+		for it := tx.Iterate(dbpath.NilPath); !it.IsDone(); it.Next() {
 			result = append(result, [2]string{it.GetKey(), string(it.GetValue())})
 		}
 		return nil
