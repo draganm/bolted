@@ -272,7 +272,7 @@ func TestIterator(t *testing.T) {
 
 		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
 			it := tx.Iterate(dbpath.NilPath)
-			require.False(t, it.HasNext())
+			require.False(t, !it.IsDone())
 			return nil
 		})
 		require.NoError(t, err)
@@ -291,13 +291,13 @@ func TestIterator(t *testing.T) {
 
 		err = bdb.Read(ctx, func(tx bolted.ReadTx) error {
 			it := tx.Iterate(dbpath.NilPath)
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 
 			require.Equal(t, "test", it.GetKey())
 			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
-			require.False(t, it.HasNext())
+			require.False(t, !it.IsDone())
 
 			return nil
 		})
@@ -319,31 +319,31 @@ func TestIterator(t *testing.T) {
 		err = bdb.Read(ctx, func(tx bolted.ReadTx) error {
 			it := tx.Iterate(dbpath.NilPath)
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test1", it.GetKey())
 			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test2", it.GetKey())
 			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Prev()
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test1", it.GetKey())
 			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Last()
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test2", it.GetKey())
 			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Next()
 
-			require.False(t, it.HasNext())
+			require.False(t, !it.IsDone())
 
 			return nil
 		})
@@ -367,25 +367,25 @@ func TestIterator(t *testing.T) {
 		err = bdb.Read(ctx, func(tx bolted.ReadTx) error {
 			it := tx.Iterate(dbpath.NilPath)
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test1", it.GetKey())
 			require.Equal(t, []byte{1, 2, 3}, it.GetValue())
 
 			it.Next()
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test2", it.GetKey())
 			require.Equal(t, []byte{2, 3, 4}, it.GetValue())
 
 			it.Next()
 
-			require.True(t, it.HasNext())
+			require.True(t, !it.IsDone())
 			require.Equal(t, "test3", it.GetKey())
 			require.Equal(t, []byte(nil), it.GetValue())
 
 			it.Next()
 
-			require.False(t, it.HasNext())
+			require.False(t, !it.IsDone())
 
 			return nil
 		})

@@ -41,7 +41,8 @@ type ReadTx interface {
 type Iterator interface {
 	GetKey() string
 	GetValue() []byte
-	HasNext() bool
+	GetRawValue() []byte
+	IsDone() bool
 	Prev()
 	Next()
 	Seek(key string)

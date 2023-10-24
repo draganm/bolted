@@ -27,12 +27,19 @@ func (i *iterator) GetKey() string {
 
 func (i *iterator) GetValue() []byte {
 	i.checkForCancelledContext()
+	copyOfValue := make([]byte, len(i.value))
+	copy(copyOfValue, i.value)
 	return i.value
 }
 
-func (i *iterator) HasNext() bool {
+func (i *iterator) GetRawValue() []byte {
 	i.checkForCancelledContext()
-	return !i.done
+	return i.value
+}
+
+func (i *iterator) IsDone() bool {
+	i.checkForCancelledContext()
+	return i.done
 }
 
 func (i *iterator) Next() {
