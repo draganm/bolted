@@ -1,6 +1,7 @@
 package bolted_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ func TestObservePath(t *testing.T) {
 	bdb, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 	defer cleanupDatabase()
 
-	updates, close := bdb.Observe(dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())
-	defer close()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	updates := bdb.Observe(ctx, dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())
+	defer cancel()
 
 	t.Run("initial event", func(t *testing.T) {
 		initEvent := <-updates
@@ -23,7 +26,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("notification of created map", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("foo"))
 			return nil
 		})
@@ -41,7 +44,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("notification of set value", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
 			return nil
 		})
@@ -58,7 +61,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("notification of deleted value", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.Delete(dbpath.ToPath("foo", "bar"))
 			return nil
 		})
@@ -75,7 +78,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("notification of storing value and deleting", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
 			tx.Delete(dbpath.ToPath("foo"))
 			return nil
@@ -93,7 +96,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("no notification sent when unrelated subtree is changed", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("baz"))
 			return nil
 		})
@@ -108,7 +111,7 @@ func TestObservePath(t *testing.T) {
 	})
 
 	t.Run("notification of storing value, deleting and re-creating", func(t *testing.T) {
-		err := bdb.Write(ctx, func(tx bolted.WriteTx) error {
+		err := bdb.Write(func(tx bolted.WriteTx) error {
 			tx.CreateMap(dbpath.ToPath("foo"))
 			tx.Put(dbpath.ToPath("foo", "bar"), []byte{1, 2, 3})
 			tx.Delete(dbpath.ToPath("foo"))

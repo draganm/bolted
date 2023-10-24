@@ -95,7 +95,11 @@ func (b *LocalDB) Stats() (*bbolt.Stats, error) {
 	return &st, nil
 }
 
-func (b *LocalDB) Write(ctx context.Context, fn func(tx WriteTx) error) (err error) {
+func (b *LocalDB) Write(fn func(tx WriteTx) error) (err error) {
+	return b.WriteWithContext(context.Background(), fn)
+}
+
+func (b *LocalDB) WriteWithContext(ctx context.Context, fn func(tx WriteTx) error) (err error) {
 
 	ctx, span := tracer.Start(ctx, "Write")
 
@@ -169,7 +173,11 @@ func (b *LocalDB) Write(ctx context.Context, fn func(tx WriteTx) error) (err err
 	})
 }
 
-func (b *LocalDB) Read(ctx context.Context, fn func(tx ReadTx) error) (err error) {
+func (b *LocalDB) Read(fn func(tx ReadTx) error) (err error) {
+	return b.ReadWithContext(context.Background(), fn)
+}
+
+func (b *LocalDB) ReadWithContext(ctx context.Context, fn func(tx ReadTx) error) (err error) {
 	ctx, span := tracer.Start(ctx, "Read")
 	defer func() {
 		if err != nil {
@@ -208,7 +216,6 @@ func (b *LocalDB) Read(ctx context.Context, fn func(tx ReadTx) error) (err error
 	})
 }
 
-func (b *LocalDB) Observe(path dbpath.Matcher) (<-chan ObservedChanges, func()) {
-	ev, cl := b.obs.observe(path)
-	return ev, cl
+func (b *LocalDB) Observe(ctx context.Context, path dbpath.Matcher) <-chan ObservedChanges {
+	return b.obs.observe(ctx, path)
 }
