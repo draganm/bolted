@@ -216,7 +216,6 @@ func (b *LocalDB) ReadWithContext(ctx context.Context, fn func(tx ReadTx) error)
 	})
 }
 
-func (b *LocalDB) Observe(path dbpath.Matcher) (<-chan ObservedChanges, func()) {
-	ev, cl := b.obs.observe(path)
-	return ev, cl
+func (b *LocalDB) Observe(ctx context.Context, path dbpath.Matcher) <-chan ObservedChanges {
+	return b.obs.observe(ctx, path)
 }

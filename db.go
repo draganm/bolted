@@ -16,7 +16,7 @@ type Database interface {
 	Write(func(tx WriteTx) error) error
 	WriteWithContext(context.Context, func(tx WriteTx) error) error
 
-	Observe(path dbpath.Matcher) (<-chan ObservedChanges, func())
+	Observe(ctx context.Context, path dbpath.Matcher) <-chan ObservedChanges
 	Close() error
 	Stats() (*bbolt.Stats, error)
 }

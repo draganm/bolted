@@ -1,6 +1,7 @@
 package bolted_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ func TestObservePath(t *testing.T) {
 	bdb, cleanupDatabase := openEmptyDatabase(t, bolted.Options{})
 	defer cleanupDatabase()
 
-	updates, close := bdb.Observe(dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())
-	defer close()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	updates := bdb.Observe(ctx, dbpath.ToPath("foo").ToMatcher().AppendAnySubpathMatcher())
+	defer cancel()
 
 	t.Run("initial event", func(t *testing.T) {
 		initEvent := <-updates

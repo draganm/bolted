@@ -1,6 +1,7 @@
 package bolted
 
 import (
+	"context"
 	"sync"
 
 	"github.com/draganm/bolted/dbpath"
@@ -105,7 +106,7 @@ func newObserver() *observer {
 	}
 }
 
-func (w *observer) observe(m dbpath.Matcher) (<-chan ObservedChanges, func()) {
+func (w *observer) observe(ctx context.Context, m dbpath.Matcher) <-chan ObservedChanges {
 	w.mu.Lock()
 	receiver, changesChan := newReceiver(m)
 	receiverKey := w.nextReceiverKey
@@ -113,20 +114,17 @@ func (w *observer) observe(m dbpath.Matcher) (<-chan ObservedChanges, func()) {
 	w.nextReceiverKey++
 	w.mu.Unlock()
 
-	closed := false
-
-	return changesChan, func() {
+	go func() {
+		<-ctx.Done()
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		if closed {
-			return
-		}
-
 		delete(w.receivers, receiverKey)
 		receiver.close()
-		closed = true
-	}
+
+	}()
+
+	return changesChan
 
 }
 
