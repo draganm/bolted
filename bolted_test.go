@@ -1,7 +1,6 @@
 package bolted_test
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,8 +10,6 @@ import (
 	"github.com/draganm/bolted/dbpath"
 	"github.com/stretchr/testify/require"
 )
-
-var ctx = context.Background()
 
 func openEmptyDatabase(t *testing.T, opts bolted.Options) (bolted.Database, func()) {
 	td, err := ioutil.TempDir("", "")
@@ -70,7 +67,7 @@ func TestCreateMap(t *testing.T) {
 			return nil
 		})
 
-		require.EqualError(t, err, "CreateMap(test): bucket already exists")
+		require.Error(t, err, "CreateMap(test): bucket already exists")
 	})
 
 	t.Run("create map nested", func(t *testing.T) {
