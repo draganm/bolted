@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
+	"runtime"
 
 	"github.com/draganm/bolted/dbpath"
 	"go.etcd.io/bbolt"
@@ -38,7 +40,13 @@ func (w *writeTx) SetFillPercent(fillPercent float64) {
 }
 
 func raiseErrorForPath(pth dbpath.Path, method string, err error) {
-	panic(fmt.Errorf("%s(%s): %w", method, pth.String(), err))
+	_, file, line, ok := runtime.Caller(2)
+	if !ok {
+		file = "unknown.go"
+		line = 0
+	}
+	file = filepath.Base(file)
+	panic(fmt.Errorf("caller %s:%d: %s(%s): %w", file, line, method, pth.String(), err))
 }
 
 func (w *writeTx) CreateMap(path dbpath.Path) {
